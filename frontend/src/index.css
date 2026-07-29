@@ -1,0 +1,80 @@
+/*
+ * NeuraLife — Base Styles
+ *
+ * Dark theme foundation for the NCA canvas application.
+ * Full-viewport layout with centered content.
+ */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  /* Colour tokens */
+  --nl-bg-primary: #0a0a0f;
+  --nl-bg-surface: #111118;
+  --nl-text-primary: #e0e0e6;
+  --nl-text-secondary: #9ca3af;
+  --nl-text-muted: #6b7280;
+  --nl-accent: #6366f1;
+  --nl-accent-glow: rgba(99, 102, 241, 0.15);
+  --nl-error: #ef4444;
+  --nl-success: #00ffa3;
+
+  /* Typography */
+  --nl-font-sans: 'Inter', 'Segoe UI', -apple-system, BlinkMacSystemFont,
+    sans-serif;
+  --nl-font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+
+  /* Spacing scale (4px base) */
+  --nl-space-1: 4px;
+  --nl-space-2: 8px;
+  --nl-space-3: 12px;
+  --nl-space-4: 16px;
+  --nl-space-6: 24px;
+  --nl-space-8: 32px;
+
+  color-scheme: dark;
+}
+
+html,
+body {
+  height: 100%;
+  width: 100%;
+  background: var(--nl-bg-primary);
+  color: var(--nl-text-primary);
+  font-family: var(--nl-font-sans);
+  font-size: 16px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow: hidden;
+}
+
+#root {
+  height: 100%;
+  width: 100%;
+}
+
+/* Ensure images and videos don't overflow */
+img,
+video {
+  max-width: 100%;
+  height: auto;
+  display: block;
+}
+
+/* Respect user motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
