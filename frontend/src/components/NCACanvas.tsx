@@ -2,6 +2,7 @@ import { useRef, useEffect, useState, useMemo } from 'react';
 import type { InferenceSession, Tensor } from 'onnxruntime-web';
 import { Canvas, useFrame } from '@react-three/fiber';
 import type { ThreeEvent } from '@react-three/fiber';
+import { OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
 
 import {
@@ -107,9 +108,10 @@ function NCAScene({
     setBrushState({ uv: null, isDown: false });
   };
 
-  // Throttling stub: run inference every (skipFrames + 1) frames.
-  // 0 = 60/120 FPS, 1 = 30/60 FPS, 2 = 20/40 FPS, etc.
-  const skipFrames = 0;
+  // Performance throttling refs
+  const skipFramesRef = useRef(0);
+  const lastTimeRef = useRef(0);
+  const frameTimesRef = useRef<number[]>([]);
 
   // Initialize DataTexture
   const texture = useMemo(() => {
@@ -136,43 +138,74 @@ function NCAScene({
     return {
       uniforms: {
         uTexture: { value: texture },
+        uTexelSize: { value: new THREE.Vector2(1.0 / gridWidth, 1.0 / gridHeight) },
       },
       vertexShader: `
         varying vec2 vUv;
+        uniform sampler2D uTexture;
         void main() {
           vUv = uv;
-          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+          float height = texture2D(uTexture, uv).a;
+          vec3 displacedPos = position + normal * (height * 0.4);
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(displacedPos, 1.0);
         }
       `,
       fragmentShader: `
         uniform sampler2D uTexture;
+        uniform vec2 uTexelSize;
         varying vec2 vUv;
         void main() {
-          // Read raw RGBA from DataTexture
           vec4 texel = texture2D(uTexture, vUv);
-          
-          // Map channels (currently RGBA extracted directly)
           vec3 rgb = texel.rgb;
           float alpha = texel.a;
           
-          // Future hooks:
-          // vec3 normal = computeNormalMap();
-          // vec3 light = computeLighting(normal);
-          // vec3 finalColor = rgb * light;
+          float hL = texture2D(uTexture, vUv - vec2(uTexelSize.x, 0.0)).a;
+          float hR = texture2D(uTexture, vUv + vec2(uTexelSize.x, 0.0)).a;
+          float hD = texture2D(uTexture, vUv - vec2(0.0, uTexelSize.y)).a;
+          float hU = texture2D(uTexture, vUv + vec2(0.0, uTexelSize.y)).a;
           
-          gl_FragColor = vec4(rgb, alpha);
+          vec3 normal = normalize(vec3(hL - hR, hD - hU, 0.5));
+          
+          vec3 lightDir = normalize(vec3(0.5, 0.8, 1.0));
+          float diff = max(dot(normal, lightDir), 0.0);
+          vec3 ambient = vec3(0.25);
+          
+          vec3 finalColor = rgb * (diff * 0.85 + ambient);
+          
+          gl_FragColor = vec4(finalColor, alpha);
         }
       `,
       transparent: true,
       side: THREE.DoubleSide,
     };
-  }, [texture]);
+  }, [texture, gridWidth, gridHeight]);
 
-  useFrame(() => {
+  useFrame(({ clock }) => {
+    // Dynamic Performance Throttling logic
+    const now = clock.getElapsedTime();
+    if (lastTimeRef.current > 0) {
+      const delta = now - lastTimeRef.current;
+      frameTimesRef.current.push(delta);
+      if (frameTimesRef.current.length > 30) {
+        const sum = frameTimesRef.current.reduce((a, b) => a + b, 0);
+        const avgFps = 1 / (sum / 30);
+        frameTimesRef.current.shift();
+
+        if (avgFps < 55 && skipFramesRef.current < 5) {
+          skipFramesRef.current += 1;
+          frameTimesRef.current = []; // allow time to stabilize
+        } else if (avgFps > 58 && skipFramesRef.current > 0) {
+          skipFramesRef.current -= 1;
+          frameTimesRef.current = [];
+        }
+      }
+    }
+    lastTimeRef.current = now;
+
     if (isInferringRef.current) return;
 
     frameCountRef.current += 1;
-    if (frameCountRef.current % (skipFrames + 1) !== 0) {
+    if (frameCountRef.current % (skipFramesRef.current + 1) !== 0) {
       return;
     }
 
@@ -234,7 +267,7 @@ function NCAScene({
         onPointerLeave={handlePointerOut}
         onPointerCancel={handlePointerOut}
       >
-        <planeGeometry args={[4, 4]} />
+        <planeGeometry args={[4, 4, gridWidth, gridHeight]} />
         <shaderMaterial args={[shaderArgs]} />
       </mesh>
 
@@ -410,7 +443,14 @@ export function NCACanvas() {
         }}
       >
         {status.kind === 'running' && sessionRef.current && stateRef.current && (
-          <Canvas camera={{ position: [0, 0, 4.5], fov: 50 }}>
+          <Canvas camera={{ position: [0, -3.5, 3], fov: 50 }}>
+            <OrbitControls 
+              enablePan={true}
+              enableZoom={true}
+              enableRotate={true}
+              autoRotate={true}
+              autoRotateSpeed={0.5}
+            />
             <ambientLight intensity={1.0} />
             <NCAScene
               session={sessionRef.current}
