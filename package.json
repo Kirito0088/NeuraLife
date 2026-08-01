@@ -10,5 +10,8 @@
     "test:frontend": "npm --prefix frontend test",
     "test:ml": "pytest",
     "test": "npm --prefix frontend test && pytest"
+  },
+  "dependencies": {
+    "ogl": "^1.0.11"
   }
 }

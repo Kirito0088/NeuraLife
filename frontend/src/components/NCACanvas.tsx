@@ -15,6 +15,7 @@ import {
 } from '../inference';
 import { HardwareUnsupported } from './HardwareUnsupported';
 import { FPSCounter } from './FPSCounter';
+import Plasma from './Plasma';
 
 const GRID_HEIGHT = 128;
 const GRID_WIDTH = 128;
@@ -328,6 +329,29 @@ export function NCACanvas() {
         position: 'relative',
       }}
     >
+      {/* Plasma background — fullscreen, behind everything */}
+      <div
+        style={{
+          position: 'absolute',
+          inset: 0,
+          pointerEvents: 'none',
+          zIndex: 0,
+        }}
+      >
+        <Plasma
+          color="#6366f1"
+          speed={0.5}
+          direction="forward"
+          scale={1.2}
+          opacity={0.55}
+          mouseInteractive={false}
+          renderScale={0.45}
+          maxDpr={1.5}
+          targetFps={30}
+          iterations={48}
+        />
+      </div>
+
       <FPSCounter />
 
       {status.kind === 'loading' && (
