@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState, useMemo } from 'react';
+import { useRef, useEffect, useState, useMemo, useCallback } from 'react';
 import type { InferenceSession, Tensor } from 'onnxruntime-web';
 import { Canvas, useFrame } from '@react-three/fiber';
 import type { ThreeEvent } from '@react-three/fiber';
@@ -17,6 +17,8 @@ import {
 import { HardwareUnsupported } from './HardwareUnsupported';
 import { FPSCounter } from './FPSCounter';
 import Plasma from './Plasma';
+import { ControlPanel } from './ControlPanel';
+import type { ControlState } from './ControlPanel';
 
 const GRID_HEIGHT = 128;
 const GRID_WIDTH = 128;
@@ -41,11 +43,17 @@ function NCAScene({
   initialState,
   gridWidth,
   gridHeight,
+  brushRadius,
+  paused,
+  stepMultiplier,
 }: {
   session: InferenceSession;
   initialState: Tensor;
   gridWidth: number;
   gridHeight: number;
+  brushRadius: number;
+  paused: boolean;
+  stepMultiplier: number;
 }) {
   const stateRef = useRef<Tensor>(initialState);
   const isInferringRef = useRef(false);
@@ -60,7 +68,7 @@ function NCAScene({
   const isPointerDownRef = useRef(false);
   const activeUvRef = useRef<{ x: number; y: number } | null>(null);
 
-  const BRUSH_RADIUS_CELLS = 6.0;
+  const BRUSH_RADIUS_CELLS = brushRadius;
 
   const updateTextureFromState = (tensor: Tensor) => {
     const rgba = extractRGBA(tensor, gridHeight, gridWidth);
@@ -203,9 +211,12 @@ function NCAScene({
     lastTimeRef.current = now;
 
     if (isInferringRef.current) return;
+    if (paused) return;
 
     frameCountRef.current += 1;
-    if (frameCountRef.current % (skipFramesRef.current + 1) !== 0) {
+    // stepMultiplier reduces effective update interval
+    const runEvery = Math.max(1, Math.round((skipFramesRef.current + 1) / stepMultiplier));
+    if (frameCountRef.current % runEvery !== 0) {
       return;
     }
 
@@ -256,6 +267,8 @@ function NCAScene({
   }, [brushState.uv]);
 
   const worldBrushRadius = (BRUSH_RADIUS_CELLS / gridWidth) * 4;
+  // Sync stateRef whenever initialState prop changes (reset)
+  useEffect(() => { stateRef.current = initialState; }, [initialState]);
 
   return (
     <group>
@@ -290,11 +303,26 @@ function NCAScene({
 /**
  * NCACanvas — Main component orchestrating R3F and ONNX WebGPU.
  */
+const DEFAULT_CONTROLS: ControlState = {
+  pattern: 'morpho-ring',
+  brushRadius: 6,
+  paused: false,
+  autoRotate: true,
+  stepMultiplier: 1,
+};
+
 export function NCACanvas() {
   const sessionRef = useRef<InferenceSession | null>(null);
-  const stateRef = useRef<Tensor | null>(null);
+  const [initialState, setInitialState] = useState<Tensor | null>(null);
 
   const [status, setStatus] = useState<Status>({ kind: 'loading' });
+  const [controls, setControls] = useState<ControlState>(DEFAULT_CONTROLS);
+
+  const handleReset = useCallback(() => {
+    const fresh = createInitialState(GRID_HEIGHT, GRID_WIDTH);
+    populateTestPattern(fresh);
+    setInitialState(fresh);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -320,9 +348,9 @@ export function NCACanvas() {
         return;
       }
 
-      const initialState = createInitialState(GRID_HEIGHT, GRID_WIDTH);
-      populateTestPattern(initialState);
-      stateRef.current = initialState;
+      const freshState = createInitialState(GRID_HEIGHT, GRID_WIDTH);
+      populateTestPattern(freshState);
+      setInitialState(freshState);
       setStatus({ kind: 'running' });
     }
 
@@ -336,6 +364,7 @@ export function NCACanvas() {
       }
     };
   }, []);
+
 
   if (status.kind === 'unsupported') {
     return (
@@ -442,21 +471,24 @@ export function NCACanvas() {
           visibility: status.kind === 'running' ? 'visible' : 'hidden',
         }}
       >
-        {status.kind === 'running' && sessionRef.current && stateRef.current && (
+        {status.kind === 'running' && sessionRef.current && initialState && (
           <Canvas camera={{ position: [0, -3.5, 3], fov: 50 }}>
             <OrbitControls 
               enablePan={true}
               enableZoom={true}
               enableRotate={true}
-              autoRotate={true}
+              autoRotate={controls.autoRotate}
               autoRotateSpeed={0.5}
             />
             <ambientLight intensity={1.0} />
             <NCAScene
               session={sessionRef.current}
-              initialState={stateRef.current}
+              initialState={initialState}
               gridWidth={GRID_WIDTH}
               gridHeight={GRID_HEIGHT}
+              brushRadius={controls.brushRadius}
+              paused={controls.paused}
+              stepMultiplier={controls.stepMultiplier}
             />
           </Canvas>
         )}
@@ -473,6 +505,13 @@ export function NCACanvas() {
       >
         {GRID_WIDTH}×{GRID_HEIGHT} · 3D WebGL Pipeline · TICK-03
       </p>
+
+      {/* Floating Control Panel */}
+      <ControlPanel
+        controls={controls}
+        onChange={setControls}
+        onReset={handleReset}
+      />
     </div>
   );
 }
