@@ -84,14 +84,6 @@ function NCAScene({
 
   const inferenceIdRef = useRef(0);
 
-  const updateTextureFromState = (tensor: Tensor) => {
-    const rgba = extractRGBA(tensor, gridHeight, gridWidth);
-    if (texture.image && texture.image.data) {
-      (texture.image.data as Uint8Array).set(rgba);
-      texture.needsUpdate = true;
-    }
-  };
-
   const applyBrushToState = (uv: { x: number; y: number }) => {
     if (!stateRef.current) return;
     if (brushMode === 'growth') {
@@ -99,7 +91,12 @@ function NCAScene({
     } else {
       applyDamage(stateRef.current, uv.x, uv.y, BRUSH_RADIUS_CELLS);
     }
-    updateTextureFromState(stateRef.current);
+    // Immediately push brush change to GPU texture
+    const rgba = extractRGBA(stateRef.current, gridHeight, gridWidth);
+    if (texture.image && texture.image.data) {
+      (texture.image.data as Uint8Array).set(rgba);
+      texture.needsUpdate = true;
+    }
   };
 
   const handlePointerDown = (e: ThreeEvent<PointerEvent>) => {
@@ -325,16 +322,21 @@ function NCAScene({
   const worldBrushRadius = (BRUSH_RADIUS_CELLS / gridWidth) * 4;
 
   useEffect(() => {
+    // Bump the epoch — any in-flight promise will see the mismatch and self-discard.
+    // Do NOT forcibly clear isInferringRef here; that races with the running session.
     inferenceIdRef.current += 1;
-    isInferringRef.current = false;
     stateRef.current = initialState;
 
-    // Immediately update texture image data on state switch
-    updateTextureFromState(initialState);
+    // Immediately push new pattern pixels to the GPU texture
+    const rgba = extractRGBA(initialState, gridHeight, gridWidth);
+    if (texture.image && texture.image.data) {
+      (texture.image.data as Uint8Array).set(rgba);
+      texture.needsUpdate = true;
+    }
 
     const metrics = calculateBiomass(initialState);
     onBiomassUpdate(metrics);
-  }, [initialState, onBiomassUpdate]);
+  }, [initialState, onBiomassUpdate, texture, gridHeight, gridWidth]);
 
   return (
     <group>
