@@ -12,6 +12,8 @@ import {
   createInitialState,
   extractRGBA,
   applyDamage,
+  applySeed,
+  calculateBiomass,
   populateTestPattern,
   populateFromImage,
 } from '../inference';
