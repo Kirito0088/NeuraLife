@@ -1,17 +1,30 @@
 import { useState, useCallback } from 'react';
 
 export type PatternPreset = 'morpho-ring' | 'glowing-emblem' | 'shield';
+export type BrushMode = 'damage' | 'growth';
+export type PaletteMode = 'neon' | 'emerald' | 'solar' | 'hologram';
 
 export interface ControlState {
   pattern: PatternPreset;
+  brushMode: BrushMode;
   brushRadius: number;
+  heightScale: number;
+  normalStrength: number;
+  paletteMode: PaletteMode;
   paused: boolean;
   autoRotate: boolean;
   stepMultiplier: number;
 }
 
+export interface BiomassMetrics {
+  activeCells: number;
+  totalCells: number;
+  biomassPercent: number;
+}
+
 interface ControlPanelProps {
   controls: ControlState;
+  biomass: BiomassMetrics;
   onChange: (next: ControlState) => void;
   onReset: () => void;
   onImageUpload: (file: File) => void;
@@ -23,7 +36,14 @@ const PATTERNS: { id: PatternPreset; label: string; emoji: string; description: 
   { id: 'shield', label: 'Shield', emoji: '🛡', description: 'Geometric square lattice' },
 ];
 
-export function ControlPanel({ controls, onChange, onReset, onImageUpload }: ControlPanelProps) {
+const PALETTES: { id: PaletteMode; label: string; color: string }[] = [
+  { id: 'neon', label: 'Cyber Neon', color: '#818cf8' },
+  { id: 'emerald', label: 'Biolum Emerald', color: '#34d399' },
+  { id: 'solar', label: 'Solar Fire', color: '#fbbf24' },
+  { id: 'hologram', label: 'Ice Hologram', color: '#38bdf8' },
+];
+
+export function ControlPanel({ controls, biomass, onChange, onReset, onImageUpload }: ControlPanelProps) {
   const [open, setOpen] = useState(true);
 
   const set = useCallback(
@@ -42,12 +62,10 @@ export function ControlPanel({ controls, onChange, onReset, onImageUpload }: Con
           top: 20,
           right: 20,
           zIndex: 200,
-          width: 40,
-          height: 40,
+          width: 42,
+          height: 42,
           borderRadius: '50%',
-          background: open
-            ? 'rgba(99,102,241,0.9)'
-            : 'rgba(15,15,25,0.85)',
+          background: open ? 'rgba(99,102,241,0.9)' : 'rgba(15,15,25,0.85)',
           border: '1px solid rgba(99,102,241,0.5)',
           color: '#e0e0ff',
           fontSize: 18,
@@ -58,7 +76,7 @@ export function ControlPanel({ controls, onChange, onReset, onImageUpload }: Con
           backdropFilter: 'blur(12px)',
           WebkitBackdropFilter: 'blur(12px)',
           transition: 'background 0.25s, transform 0.2s',
-          boxShadow: '0 4px 20px rgba(99,102,241,0.3)',
+          boxShadow: '0 4px 20px rgba(99,102,241,0.35)',
         }}
         title={open ? 'Close Controls' : 'Open Controls'}
         aria-label="Toggle control panel"
@@ -72,27 +90,29 @@ export function ControlPanel({ controls, onChange, onReset, onImageUpload }: Con
           id="control-panel"
           style={{
             position: 'fixed',
-            top: 70,
+            top: 72,
             right: 20,
-            width: 280,
+            width: 300,
+            maxHeight: 'calc(100vh - 90px)',
+            overflowY: 'auto',
             zIndex: 199,
-            background: 'rgba(10,10,18,0.82)',
-            backdropFilter: 'blur(20px)',
-            WebkitBackdropFilter: 'blur(20px)',
+            background: 'rgba(10,10,18,0.88)',
+            backdropFilter: 'blur(24px)',
+            WebkitBackdropFilter: 'blur(24px)',
             border: '1px solid rgba(99,102,241,0.25)',
             borderRadius: 16,
             padding: '20px 18px',
-            boxShadow: '0 8px 40px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.04)',
+            boxShadow: '0 12px 48px rgba(0,0,0,0.65), 0 0 0 1px rgba(255,255,255,0.04)',
             fontFamily: '"Inter", "Segoe UI", system-ui, sans-serif',
             color: '#cbd5e1',
             display: 'flex',
             flexDirection: 'column',
-            gap: 20,
+            gap: 18,
             userSelect: 'none',
           }}
         >
           {/* Header */}
-          <div style={{ borderBottom: '1px solid rgba(99,102,241,0.15)', paddingBottom: 14 }}>
+          <div style={{ borderBottom: '1px solid rgba(99,102,241,0.15)', paddingBottom: 12 }}>
             <h2
               style={{
                 margin: 0,
@@ -103,12 +123,84 @@ export function ControlPanel({ controls, onChange, onReset, onImageUpload }: Con
                 color: '#818cf8',
               }}
             >
-              NeuraLife Controls
+              NeuraLife 3D Suite
             </h2>
-            <p style={{ margin: '4px 0 0', fontSize: 11, color: '#475569', lineHeight: 1.5 }}>
-              Neural Cellular Automata · Live Inference
+            <p style={{ margin: '3px 0 0', fontSize: 11, color: '#475569', lineHeight: 1.4 }}>
+              Neural Cellular Automata · Morphogenesis Engine
             </p>
           </div>
+
+          {/* Biomass Analytics Readout Card */}
+          <section
+            id="biomass-card"
+            style={{
+              background: 'rgba(99,102,241,0.08)',
+              border: '1px solid rgba(99,102,241,0.2)',
+              borderRadius: 12,
+              padding: '12px 14px',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+            }}
+          >
+            <div>
+              <div style={{ fontSize: 10, fontWeight: 700, color: '#818cf8', textTransform: 'uppercase' }}>
+                Active Biomass
+              </div>
+              <div style={{ fontSize: 18, fontWeight: 800, color: '#f8fafc', marginTop: 2 }}>
+                {biomass.biomassPercent}%
+              </div>
+            </div>
+            <div style={{ textAlign: 'right' }}>
+              <div style={{ fontSize: 10, color: '#64748b' }}>Living Cells</div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: '#cbd5e1', marginTop: 2 }}>
+                {biomass.activeCells} / {biomass.totalCells}
+              </div>
+            </div>
+          </section>
+
+          {/* Brush Mode Toggle */}
+          <section id="brush-mode-section">
+            <Label>Brush Tool</Label>
+            <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+              <button
+                id="brush-damage-btn"
+                onClick={() => set({ brushMode: 'damage' })}
+                style={{
+                  flex: 1,
+                  padding: '9px 0',
+                  borderRadius: 10,
+                  border: controls.brushMode === 'damage' ? '1px solid #ef4444' : '1px solid rgba(255,255,255,0.06)',
+                  background: controls.brushMode === 'damage' ? 'rgba(239,68,68,0.2)' : 'rgba(255,255,255,0.03)',
+                  color: controls.brushMode === 'damage' ? '#fca5a5' : '#64748b',
+                  fontSize: 12,
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  transition: 'all 0.15s',
+                }}
+              >
+                ⚡ Damage
+              </button>
+              <button
+                id="brush-growth-btn"
+                onClick={() => set({ brushMode: 'growth' })}
+                style={{
+                  flex: 1,
+                  padding: '9px 0',
+                  borderRadius: 10,
+                  border: controls.brushMode === 'growth' ? '1px solid #10b981' : '1px solid rgba(255,255,255,0.06)',
+                  background: controls.brushMode === 'growth' ? 'rgba(16,185,129,0.2)' : 'rgba(255,255,255,0.03)',
+                  color: controls.brushMode === 'growth' ? '#6ee7b7' : '#64748b',
+                  fontSize: 12,
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  transition: 'all 0.15s',
+                }}
+              >
+                🌱 Seed Growth
+              </button>
+            </div>
+          </section>
 
           {/* Pattern Selector */}
           <section id="pattern-selector">
@@ -123,7 +215,7 @@ export function ControlPanel({ controls, onChange, onReset, onImageUpload }: Con
                     display: 'flex',
                     alignItems: 'center',
                     gap: 10,
-                    padding: '9px 12px',
+                    padding: '8px 12px',
                     borderRadius: 10,
                     border: controls.pattern === p.id
                       ? '1px solid rgba(99,102,241,0.7)'
@@ -137,64 +229,101 @@ export function ControlPanel({ controls, onChange, onReset, onImageUpload }: Con
                     width: '100%',
                   }}
                 >
-                  <span style={{ fontSize: 18, lineHeight: 1 }}>{p.emoji}</span>
+                  <span style={{ fontSize: 16, lineHeight: 1 }}>{p.emoji}</span>
                   <div>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: controls.pattern === p.id ? '#a5b4fc' : '#94a3b8' }}>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: controls.pattern === p.id ? '#a5b4fc' : '#94a3b8' }}>
                       {p.label}
                     </div>
-                    <div style={{ fontSize: 11, color: '#475569', marginTop: 2 }}>{p.description}</div>
                   </div>
                   {controls.pattern === p.id && (
-                    <span style={{ marginLeft: 'auto', color: '#818cf8', fontSize: 14 }}>●</span>
+                    <span style={{ marginLeft: 'auto', color: '#818cf8', fontSize: 12 }}>●</span>
                   )}
                 </button>
               ))}
             </div>
           </section>
 
-          {/* Brush Radius Slider */}
-          <section id="brush-radius-section">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Label>Damage Brush Radius</Label>
-              <span style={{ fontSize: 13, color: '#818cf8', fontWeight: 700 }}>{controls.brushRadius}px</span>
-            </div>
-            <input
-              id="brush-radius-slider"
-              type="range"
-              min={1}
-              max={10}
-              step={1}
-              value={controls.brushRadius}
-              onChange={(e) => set({ brushRadius: Number(e.target.value) })}
-              style={{ width: '100%', marginTop: 8, accentColor: '#6366f1', cursor: 'pointer' }}
-              aria-label="Brush radius"
-            />
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: '#334155', marginTop: 3 }}>
-              <span>1px · Fine</span>
-              <span>10px · Heavy</span>
+          {/* Color Palette Selector */}
+          <section id="palette-selector">
+            <Label>Thermal Color Theme</Label>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 7, marginTop: 8 }}>
+              {PALETTES.map((pal) => (
+                <button
+                  key={pal.id}
+                  id={`palette-${pal.id}`}
+                  onClick={() => set({ paletteMode: pal.id })}
+                  style={{
+                    padding: '7px 8px',
+                    borderRadius: 8,
+                    border: controls.paletteMode === pal.id ? `1px solid ${pal.color}` : '1px solid rgba(255,255,255,0.06)',
+                    background: controls.paletteMode === pal.id ? `${pal.color}22` : 'rgba(255,255,255,0.03)',
+                    color: controls.paletteMode === pal.id ? '#f8fafc' : '#64748b',
+                    fontSize: 11,
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
+                  }}
+                >
+                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: pal.color }} />
+                  {pal.label}
+                </button>
+              ))}
             </div>
           </section>
 
-          {/* Step Multiplier */}
-          <section id="step-multiplier-section">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Label>Step Speed</Label>
-              <span style={{ fontSize: 13, color: '#818cf8', fontWeight: 700 }}>{controls.stepMultiplier}×</span>
+          {/* Sliders: Brush Radius, 3D Extrusion Height, Normal Intensity */}
+          <section style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Label>Brush Radius</Label>
+                <span style={{ fontSize: 12, color: '#818cf8', fontWeight: 700 }}>{controls.brushRadius}px</span>
+              </div>
+              <input
+                id="brush-radius-slider"
+                type="range"
+                min={1}
+                max={12}
+                step={1}
+                value={controls.brushRadius}
+                onChange={(e) => set({ brushRadius: Number(e.target.value) })}
+                style={{ width: '100%', marginTop: 6, accentColor: '#6366f1', cursor: 'pointer' }}
+              />
             </div>
-            <input
-              id="step-multiplier-slider"
-              type="range"
-              min={1}
-              max={4}
-              step={1}
-              value={controls.stepMultiplier}
-              onChange={(e) => set({ stepMultiplier: Number(e.target.value) })}
-              style={{ width: '100%', marginTop: 8, accentColor: '#6366f1', cursor: 'pointer' }}
-              aria-label="CA step speed multiplier"
-            />
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: '#334155', marginTop: 3 }}>
-              <span>1× · Normal</span>
-              <span>4× · Fast</span>
+
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Label>3D Height Extrusion</Label>
+                <span style={{ fontSize: 12, color: '#818cf8', fontWeight: 700 }}>{controls.heightScale.toFixed(1)}×</span>
+              </div>
+              <input
+                id="height-scale-slider"
+                type="range"
+                min={0.0}
+                max={2.0}
+                step={0.1}
+                value={controls.heightScale}
+                onChange={(e) => set({ heightScale: Number(e.target.value) })}
+                style={{ width: '100%', marginTop: 6, accentColor: '#6366f1', cursor: 'pointer' }}
+              />
+            </div>
+
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Label>Normal Lighting Strength</Label>
+                <span style={{ fontSize: 12, color: '#818cf8', fontWeight: 700 }}>{controls.normalStrength.toFixed(1)}×</span>
+              </div>
+              <input
+                id="normal-strength-slider"
+                type="range"
+                min={0.1}
+                max={2.0}
+                step={0.1}
+                value={controls.normalStrength}
+                onChange={(e) => set({ normalStrength: Number(e.target.value) })}
+                style={{ width: '100%', marginTop: 6, accentColor: '#6366f1', cursor: 'pointer' }}
+              />
             </div>
           </section>
 
@@ -265,15 +394,13 @@ export function ControlPanel({ controls, onChange, onReset, onImageUpload }: Con
               transition: 'background 0.2s',
               letterSpacing: '0.04em',
             }}
-            onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(239,68,68,0.18)')}
-            onMouseLeave={(e) => (e.currentTarget.style.background = 'rgba(239,68,68,0.08)')}
           >
             ↺ Reset Seed Cell
           </button>
 
           {/* Footer */}
-          <p style={{ margin: 0, fontSize: 10, color: '#1e293b', textAlign: 'center', letterSpacing: '0.06em' }}>
-            NEURALIFE · NCA v0.1 · BPTT-96
+          <p style={{ margin: 0, fontSize: 10, color: '#334155', textAlign: 'center', letterSpacing: '0.06em' }}>
+            NEURALIFE · 3D SUITE v1.0 · BPTT-96
           </p>
         </aside>
       )}

@@ -44,23 +44,32 @@ function NCAScene({
   initialState,
   gridWidth,
   gridHeight,
+  brushMode,
   brushRadius,
+  heightScale,
+  normalStrength,
+  paletteMode,
   paused,
   stepMultiplier,
+  onBiomassUpdate,
 }: {
   session: InferenceSession;
   initialState: Tensor;
   gridWidth: number;
   gridHeight: number;
+  brushMode: 'damage' | 'growth';
   brushRadius: number;
+  heightScale: number;
+  normalStrength: number;
+  paletteMode: 'neon' | 'emerald' | 'solar' | 'hologram';
   paused: boolean;
   stepMultiplier: number;
+  onBiomassUpdate: (metrics: { activeCells: number; totalCells: number; biomassPercent: number }) => void;
 }) {
   const stateRef = useRef<Tensor>(initialState);
   const isInferringRef = useRef(false);
   const frameCountRef = useRef(0);
   
-  // Brush state
   const [brushState, setBrushState] = useState<{
     uv: { x: number; y: number } | null;
     isDown: boolean;
@@ -79,9 +88,13 @@ function NCAScene({
     }
   };
 
-  const applyDamageToState = (uv: { x: number; y: number }) => {
+  const applyBrushToState = (uv: { x: number; y: number }) => {
     if (!stateRef.current) return;
-    applyDamage(stateRef.current, uv.x, uv.y, BRUSH_RADIUS_CELLS);
+    if (brushMode === 'growth') {
+      applySeed(stateRef.current, uv.x, uv.y, BRUSH_RADIUS_CELLS);
+    } else {
+      applyDamage(stateRef.current, uv.x, uv.y, BRUSH_RADIUS_CELLS);
+    }
     updateTextureFromState(stateRef.current);
   };
 
@@ -91,7 +104,7 @@ function NCAScene({
     if (e.uv) {
       activeUvRef.current = { x: e.uv.x, y: e.uv.y };
       setBrushState({ uv: activeUvRef.current, isDown: true });
-      applyDamageToState(activeUvRef.current);
+      applyBrushToState(activeUvRef.current);
     }
   };
 
@@ -106,7 +119,7 @@ function NCAScene({
       activeUvRef.current = { x: e.uv.x, y: e.uv.y };
       setBrushState({ uv: activeUvRef.current, isDown: isPointerDownRef.current });
       if (isPointerDownRef.current) {
-        applyDamageToState(activeUvRef.current);
+        applyBrushToState(activeUvRef.current);
       }
     }
   };
@@ -117,12 +130,10 @@ function NCAScene({
     setBrushState({ uv: null, isDown: false });
   };
 
-  // Performance throttling refs
   const skipFramesRef = useRef(0);
   const lastTimeRef = useRef(0);
   const frameTimesRef = useRef<number[]>([]);
 
-  // Initialize DataTexture
   const texture = useMemo(() => {
     const size = gridWidth * gridHeight * 4;
     const data = new Uint8Array(size);
@@ -136,33 +147,63 @@ function NCAScene({
       THREE.RGBAFormat,
       THREE.UnsignedByteType,
     );
-    tex.magFilter = THREE.NearestFilter; // Preserve pixelated look
+    tex.magFilter = THREE.NearestFilter;
     tex.minFilter = THREE.NearestFilter;
     tex.needsUpdate = true;
     return tex;
   }, [gridWidth, gridHeight, initialState]);
 
-  // Custom ShaderMaterial for 3D NCA state
+  const paletteModeInt = useMemo(() => {
+    switch (paletteMode) {
+      case 'emerald': return 1;
+      case 'solar': return 2;
+      case 'hologram': return 3;
+      default: return 0; // neon
+    }
+  }, [paletteMode]);
+
   const shaderArgs = useMemo(() => {
     return {
       uniforms: {
         uTexture: { value: texture },
         uTexelSize: { value: new THREE.Vector2(1.0 / gridWidth, 1.0 / gridHeight) },
+        uHeightScale: { value: heightScale },
+        uNormalStrength: { value: normalStrength },
+        uPaletteMode: { value: paletteModeInt },
       },
       vertexShader: `
-        varying vec2 vUv;
         uniform sampler2D uTexture;
+        uniform float uHeightScale;
+        varying vec2 vUv;
         void main() {
           vUv = uv;
           float height = texture2D(uTexture, uv).a;
-          vec3 displacedPos = position + normal * (height * 0.4);
+          vec3 displacedPos = position + normal * (height * uHeightScale);
           gl_Position = projectionMatrix * modelViewMatrix * vec4(displacedPos, 1.0);
         }
       `,
       fragmentShader: `
         uniform sampler2D uTexture;
         uniform vec2 uTexelSize;
+        uniform float uNormalStrength;
+        uniform int uPaletteMode;
         varying vec2 vUv;
+
+        vec3 applyPalette(vec3 rgb, float alpha) {
+          if (uPaletteMode == 1) {
+            // Emerald Bioluminescence
+            return vec3(rgb.r * 0.1, rgb.g * 0.95 + 0.1, rgb.b * 0.6 + 0.3 * alpha);
+          } else if (uPaletteMode == 2) {
+            // Solar Fire
+            return vec3(rgb.r * 1.0 + 0.2 * alpha, rgb.g * 0.65, rgb.b * 0.1);
+          } else if (uPaletteMode == 3) {
+            // Ice Hologram
+            return vec3(rgb.r * 0.2, rgb.g * 0.7 + 0.2, rgb.b * 1.0);
+          }
+          // Default Cyber Neon
+          return rgb;
+        }
+
         void main() {
           vec4 texel = texture2D(uTexture, vUv);
           vec3 rgb = texel.rgb;
@@ -173,13 +214,14 @@ function NCAScene({
           float hD = texture2D(uTexture, vUv - vec2(0.0, uTexelSize.y)).a;
           float hU = texture2D(uTexture, vUv + vec2(0.0, uTexelSize.y)).a;
           
-          vec3 normal = normalize(vec3(hL - hR, hD - hU, 0.5));
+          vec3 normal = normalize(vec3((hL - hR) * uNormalStrength, (hD - hU) * uNormalStrength, 0.5));
           
           vec3 lightDir = normalize(vec3(0.5, 0.8, 1.0));
           float diff = max(dot(normal, lightDir), 0.0);
           vec3 ambient = vec3(0.25);
           
-          vec3 finalColor = rgb * (diff * 0.85 + ambient);
+          vec3 themeColor = applyPalette(rgb, alpha);
+          vec3 finalColor = themeColor * (diff * 0.85 + ambient);
           
           gl_FragColor = vec4(finalColor, alpha);
         }
@@ -187,10 +229,9 @@ function NCAScene({
       transparent: true,
       side: THREE.DoubleSide,
     };
-  }, [texture, gridWidth, gridHeight]);
+  }, [texture, gridWidth, gridHeight, heightScale, normalStrength, paletteModeInt]);
 
   useFrame(({ clock }) => {
-    // Dynamic Performance Throttling logic
     const now = clock.getElapsedTime();
     if (lastTimeRef.current > 0) {
       const delta = now - lastTimeRef.current;
@@ -202,7 +243,7 @@ function NCAScene({
 
         if (avgFps < 55 && skipFramesRef.current < 5) {
           skipFramesRef.current += 1;
-          frameTimesRef.current = []; // allow time to stabilize
+          frameTimesRef.current = [];
         } else if (avgFps > 58 && skipFramesRef.current > 0) {
           skipFramesRef.current -= 1;
           frameTimesRef.current = [];
@@ -215,7 +256,6 @@ function NCAScene({
     if (paused) return;
 
     frameCountRef.current += 1;
-    // stepMultiplier reduces effective update interval
     const runEvery = Math.max(1, Math.round((skipFramesRef.current + 1) / stepMultiplier));
     if (frameCountRef.current % runEvery !== 0) {
       return;
@@ -232,32 +272,37 @@ function NCAScene({
           return;
         }
 
-        // Extract RGBA channels
         const rgba = extractRGBA(output, gridHeight, gridWidth);
         
-        // Update DataTexture directly to bypass React render cycle
         if (texture.image && texture.image.data) {
           (texture.image.data as Uint8Array).set(rgba);
           texture.needsUpdate = true;
         }
 
-        // If pointer is down during inference, re-apply damage to output before passing forward
         if (isPointerDownRef.current && activeUvRef.current) {
-          applyDamage(output, activeUvRef.current.x, activeUvRef.current.y, BRUSH_RADIUS_CELLS);
+          if (brushMode === 'growth') {
+            applySeed(output, activeUvRef.current.x, activeUvRef.current.y, BRUSH_RADIUS_CELLS);
+          } else {
+            applyDamage(output, activeUvRef.current.x, activeUvRef.current.y, BRUSH_RADIUS_CELLS);
+          }
         }
 
-        // Feed output back as input
         stateRef.current = output;
+        
+        // Report biomass metrics periodically
+        if (frameCountRef.current % 10 === 0) {
+          const metrics = calculateBiomass(output);
+          onBiomassUpdate(metrics);
+        }
+
         isInferringRef.current = false;
       })
       .catch((err) => {
         console.error('[NeuraLife] Inference step error:', err);
-        // Do not crash, allow retry or freeze
         isInferringRef.current = false;
       });
   });
 
-  // World coordinates for the visual brush ring
   const brushWorldPos = useMemo(() => {
     if (!brushState.uv) return null;
     return [
@@ -268,8 +313,11 @@ function NCAScene({
   }, [brushState.uv]);
 
   const worldBrushRadius = (BRUSH_RADIUS_CELLS / gridWidth) * 4;
-  // Sync stateRef whenever initialState prop changes (reset)
-  useEffect(() => { stateRef.current = initialState; }, [initialState]);
+  useEffect(() => {
+    stateRef.current = initialState;
+    const metrics = calculateBiomass(initialState);
+    onBiomassUpdate(metrics);
+  }, [initialState, onBiomassUpdate]);
 
   return (
     <group>
@@ -285,12 +333,16 @@ function NCAScene({
         <shaderMaterial args={[shaderArgs]} />
       </mesh>
 
-      {/* 3D Visual Damage Brush Overlay */}
+      {/* 3D Visual Damage / Seed Growth Brush Ring */}
       {brushWorldPos && (
         <mesh position={brushWorldPos}>
           <ringGeometry args={[Math.max(0.01, worldBrushRadius - 0.015), worldBrushRadius, 32]} />
           <meshBasicMaterial
-            color={brushState.isDown ? '#ef4444' : '#818cf8'}
+            color={
+              brushMode === 'growth'
+                ? brushState.isDown ? '#10b981' : '#34d399'
+                : brushState.isDown ? '#ef4444' : '#818cf8'
+            }
             transparent
             opacity={0.85}
             side={THREE.DoubleSide}
@@ -306,7 +358,11 @@ function NCAScene({
  */
 const DEFAULT_CONTROLS: ControlState = {
   pattern: 'morpho-ring',
+  brushMode: 'damage',
   brushRadius: 6,
+  heightScale: 0.4,
+  normalStrength: 0.8,
+  paletteMode: 'neon',
   paused: false,
   autoRotate: true,
   stepMultiplier: 1,
@@ -318,6 +374,11 @@ export function NCACanvas() {
 
   const [status, setStatus] = useState<Status>({ kind: 'loading' });
   const [controls, setControls] = useState<ControlState>(DEFAULT_CONTROLS);
+  const [biomass, setBiomass] = useState<{ activeCells: number; totalCells: number; biomassPercent: number }>({
+    activeCells: 0,
+    totalCells: GRID_WIDTH * GRID_HEIGHT,
+    biomassPercent: 0,
+  });
 
   const handleReset = useCallback(() => {
     const fresh = createInitialState(GRID_HEIGHT, GRID_WIDTH);
@@ -509,9 +570,14 @@ export function NCACanvas() {
               initialState={initialState}
               gridWidth={GRID_WIDTH}
               gridHeight={GRID_HEIGHT}
+              brushMode={controls.brushMode}
               brushRadius={controls.brushRadius}
+              heightScale={controls.heightScale}
+              normalStrength={controls.normalStrength}
+              paletteMode={controls.paletteMode}
               paused={controls.paused}
               stepMultiplier={controls.stepMultiplier}
+              onBiomassUpdate={setBiomass}
             />
           </Canvas>
         )}
@@ -532,6 +598,7 @@ export function NCACanvas() {
       {/* Floating Control Panel */}
       <ControlPanel
         controls={controls}
+        biomass={biomass}
         onChange={setControls}
         onReset={handleReset}
         onImageUpload={handleImageUpload}

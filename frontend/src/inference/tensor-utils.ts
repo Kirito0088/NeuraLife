@@ -249,3 +249,83 @@ export function applyDamage(
     }
   }
 }
+
+/**
+ * Plants fresh high-energy seed cells in a radius for the Growth/Seed brush.
+ */
+export function applySeed(
+  tensor: ort.Tensor,
+  u: number,
+  v: number,
+  radius: number
+): void {
+  const dims = tensor.dims;
+  if (dims.length !== 4) return;
+
+  const channels = dims[1];
+  const height = dims[2];
+  const width = dims[3];
+
+  const data = tensor.data as Float32Array;
+  const planeSize = height * width;
+
+  const cx = u * width;
+  const cy = v * height;
+  const radiusSq = radius * radius;
+
+  const minX = Math.max(0, Math.floor(cx - radius));
+  const maxX = Math.min(width - 1, Math.ceil(cx + radius));
+  const minY = Math.max(0, Math.floor(cy - radius));
+  const maxY = Math.min(height - 1, Math.ceil(cy + radius));
+
+  for (let y = minY; y <= maxY; y++) {
+    for (let x = minX; x <= maxX; x++) {
+      const dx = (x + 0.5) - cx;
+      const dy = (y + 0.5) - cy;
+
+      if (dx * dx + dy * dy <= radiusSq) {
+        const spatialIdx = y * width + x;
+        // Plant cell: RGB vibrant cyan/violet, Alpha = 1.0, hidden states = 1.0
+        data[0 * planeSize + spatialIdx] = 0.4;
+        data[1 * planeSize + spatialIdx] = 0.8;
+        data[2 * planeSize + spatialIdx] = 1.0;
+        data[3 * planeSize + spatialIdx] = 1.0;
+
+        for (let c = 4; c < channels; c++) {
+          data[c * planeSize + spatialIdx] = 1.0;
+        }
+      }
+    }
+  }
+}
+
+/**
+ * Calculates live biomass metrics (active cell count and biomass percentage).
+ */
+export function calculateBiomass(tensor: ort.Tensor): {
+  activeCells: number;
+  totalCells: number;
+  biomassPercent: number;
+} {
+  const dims = tensor.dims;
+  if (dims.length !== 4) return { activeCells: 0, totalCells: 0, biomassPercent: 0 };
+
+  const height = dims[2];
+  const width = dims[3];
+  const totalCells = height * width;
+  const data = tensor.data as Float32Array;
+  const planeSize = totalCells;
+
+  let activeCells = 0;
+
+  // Alpha is channel 3
+  const alphaOffset = 3 * planeSize;
+  for (let i = 0; i < totalCells; i++) {
+    if (data[alphaOffset + i] > 0.1) {
+      activeCells++;
+    }
+  }
+
+  const biomassPercent = Number(((activeCells / totalCells) * 100).toFixed(1));
+  return { activeCells, totalCells, biomassPercent };
+}
