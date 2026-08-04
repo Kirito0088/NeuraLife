@@ -43,10 +43,9 @@ export function createInitialState(
 }
 
 /**
- * Populates a vibrant test pattern on an existing state tensor
- * so the initial canvas state is visually bright and clear for testing/damaging.
+ * Populates a vibrant test pattern on an existing state tensor based on preset ID.
  */
-export function populateTestPattern(tensor: ort.Tensor): void {
+export function populateTestPattern(tensor: ort.Tensor, patternId: string = 'morpho-ring'): void {
   const dims = tensor.dims;
   if (dims.length !== 4) return;
   const channels = dims[1];
@@ -54,6 +53,8 @@ export function populateTestPattern(tensor: ort.Tensor): void {
   const width = dims[3];
 
   const data = tensor.data as Float32Array;
+  data.fill(0.0); // Reset all cells
+
   const planeSize = height * width;
   const centerY = Math.floor(height / 2);
   const centerX = Math.floor(width / 2);
@@ -64,16 +65,86 @@ export function populateTestPattern(tensor: ort.Tensor): void {
     for (let x = 0; x < width; x++) {
       const dy = y - centerY;
       const dx = x - centerX;
-      if (dx * dx + dy * dy <= radiusSq) {
-        const spatialIdx = y * width + x;
-        const normDist = Math.sqrt(dx * dx + dy * dy) / radius;
-        
-        // Vibrant cyan-magenta-green gradient
-        data[0 * planeSize + spatialIdx] = 0.4 + 0.5 * (1 - normDist); // Red
-        data[1 * planeSize + spatialIdx] = 0.7 * (1 - normDist);       // Green
-        data[2 * planeSize + spatialIdx] = 0.9;                        // Blue
-        data[3 * planeSize + spatialIdx] = 1.0;                        // Alpha
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      const spatialIdx = y * width + x;
 
+      if (patternId === 'morpho-ring') {
+        if (dist <= radius) {
+          const normDist = dist / radius;
+          data[0 * planeSize + spatialIdx] = Math.max(0, 0.4 * Math.sin(normDist * Math.PI * 2)); // Red
+          data[1 * planeSize + spatialIdx] = 0.6 * (1 - normDist);                               // Green
+          data[2 * planeSize + spatialIdx] = 0.95;                                              // Blue
+          data[3 * planeSize + spatialIdx] = 1.0;                                               // Alpha
+          for (let c = 4; c < channels; c++) data[c * planeSize + spatialIdx] = 1.0;
+        }
+      } else if (patternId === 'glowing-emblem') {
+        const angle = Math.atan2(dy, dx);
+        const starRadius = radius * (0.7 + 0.3 * Math.cos(angle * 5));
+        if (dist <= starRadius) {
+          const normDist = dist / starRadius;
+          data[0 * planeSize + spatialIdx] = 1.0 - 0.4 * normDist; // Amber/Gold
+          data[1 * planeSize + spatialIdx] = 0.75 - 0.5 * normDist;
+          data[2 * planeSize + spatialIdx] = 0.2;
+          data[3 * planeSize + spatialIdx] = 1.0;
+          for (let c = 4; c < channels; c++) data[c * planeSize + spatialIdx] = 1.0;
+        }
+      } else if (patternId === 'shield') {
+        const halfSide = radius * 0.75;
+        if (Math.abs(dx) <= halfSide && Math.abs(dy) <= halfSide) {
+          data[0 * planeSize + spatialIdx] = 0.85; // Magenta/Emerald
+          data[1 * planeSize + spatialIdx] = 0.2;
+          data[2 * planeSize + spatialIdx] = 0.6;
+          data[3 * planeSize + spatialIdx] = 1.0;
+          for (let c = 4; c < channels; c++) data[c * planeSize + spatialIdx] = 1.0;
+        }
+      }
+    }
+  }
+}
+
+/**
+ * Loads a custom HTMLImageElement into an ort.Tensor state.
+ */
+export function populateFromImage(
+  tensor: ort.Tensor,
+  image: HTMLImageElement
+): void {
+  const dims = tensor.dims;
+  if (dims.length !== 4) return;
+  const channels = dims[1];
+  const height = dims[2];
+  const width = dims[3];
+
+  const offscreen = document.createElement('canvas');
+  offscreen.width = width;
+  offscreen.height = height;
+  const ctx = offscreen.getContext('2d');
+  if (!ctx) return;
+
+  ctx.drawImage(image, 0, 0, width, height);
+  const imgData = ctx.getImageData(0, 0, width, height);
+  const pixels = imgData.data;
+
+  const data = tensor.data as Float32Array;
+  data.fill(0.0);
+  const planeSize = height * width;
+
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const spatialIdx = y * width + x;
+      const pxIdx = spatialIdx * 4;
+
+      const r = pixels[pxIdx + 0] / 255.0;
+      const g = pixels[pxIdx + 1] / 255.0;
+      const b = pixels[pxIdx + 2] / 255.0;
+      const a = pixels[pxIdx + 3] / 255.0;
+
+      data[0 * planeSize + spatialIdx] = r;
+      data[1 * planeSize + spatialIdx] = g;
+      data[2 * planeSize + spatialIdx] = b;
+      data[3 * planeSize + spatialIdx] = a;
+
+      if (a > 0.1) {
         for (let c = 4; c < channels; c++) {
           data[c * planeSize + spatialIdx] = 1.0;
         }

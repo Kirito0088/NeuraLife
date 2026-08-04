@@ -13,6 +13,7 @@ import {
   extractRGBA,
   applyDamage,
   populateTestPattern,
+  populateFromImage,
 } from '../inference';
 import { HardwareUnsupported } from './HardwareUnsupported';
 import { FPSCounter } from './FPSCounter';
@@ -320,8 +321,30 @@ export function NCACanvas() {
 
   const handleReset = useCallback(() => {
     const fresh = createInitialState(GRID_HEIGHT, GRID_WIDTH);
-    populateTestPattern(fresh);
+    populateTestPattern(fresh, controls.pattern);
     setInitialState(fresh);
+  }, [controls.pattern]);
+
+  // Whenever pattern preset selection changes, re-populate the state
+  useEffect(() => {
+    if (status.kind === 'running') {
+      handleReset();
+    }
+  }, [controls.pattern, status.kind, handleReset]);
+
+  const handleImageUpload = useCallback((file: File) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      if (!e.target?.result) return;
+      const img = new Image();
+      img.onload = () => {
+        const fresh = createInitialState(GRID_HEIGHT, GRID_WIDTH);
+        populateFromImage(fresh, img);
+        setInitialState(fresh);
+      };
+      img.src = e.target.result as string;
+    };
+    reader.readAsDataURL(file);
   }, []);
 
   useEffect(() => {
@@ -511,6 +534,7 @@ export function NCACanvas() {
         controls={controls}
         onChange={setControls}
         onReset={handleReset}
+        onImageUpload={handleImageUpload}
       />
     </div>
   );

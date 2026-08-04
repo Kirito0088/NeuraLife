@@ -14,6 +14,7 @@ interface ControlPanelProps {
   controls: ControlState;
   onChange: (next: ControlState) => void;
   onReset: () => void;
+  onImageUpload: (file: File) => void;
 }
 
 const PATTERNS: { id: PatternPreset; label: string; emoji: string; description: string }[] = [
@@ -22,7 +23,7 @@ const PATTERNS: { id: PatternPreset; label: string; emoji: string; description: 
   { id: 'shield', label: 'Shield', emoji: '🛡', description: 'Geometric square lattice' },
 ];
 
-export function ControlPanel({ controls, onChange, onReset }: ControlPanelProps) {
+export function ControlPanel({ controls, onChange, onReset, onImageUpload }: ControlPanelProps) {
   const [open, setOpen] = useState(true);
 
   const set = useCallback(
@@ -214,6 +215,39 @@ export function ControlPanel({ controls, onChange, onReset }: ControlPanelProps)
               color="#8b5cf6"
             />
           </section>
+
+          {/* Custom Image Upload */}
+          <label
+            id="upload-image-label"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 8,
+              padding: '9px 0',
+              borderRadius: 10,
+              border: '1px dashed rgba(99,102,241,0.4)',
+              background: 'rgba(99,102,241,0.06)',
+              color: '#a5b4fc',
+              fontSize: 12,
+              fontWeight: 600,
+              cursor: 'pointer',
+              transition: 'background 0.2s',
+            }}
+          >
+            📁 Upload Custom Target
+            <input
+              id="upload-image-input"
+              type="file"
+              accept="image/*"
+              style={{ display: 'none' }}
+              onChange={(e) => {
+                if (e.target.files && e.target.files[0]) {
+                  onImageUpload(e.target.files[0]);
+                }
+              }}
+            />
+          </label>
 
           {/* Reset Button */}
           <button
