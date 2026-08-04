@@ -82,6 +82,8 @@ function NCAScene({
 
   const BRUSH_RADIUS_CELLS = brushRadius;
 
+  const inferenceIdRef = useRef(0);
+
   const updateTextureFromState = (tensor: Tensor) => {
     const rgba = extractRGBA(tensor, gridHeight, gridWidth);
     if (texture.image && texture.image.data) {
@@ -264,10 +266,17 @@ function NCAScene({
     }
 
     isInferringRef.current = true;
+    const currentInferenceId = inferenceIdRef.current;
 
     session
       .run({ input: stateRef.current })
       .then((results) => {
+        // Discard stale in-flight inference if pattern was reset/switched
+        if (currentInferenceId !== inferenceIdRef.current) {
+          isInferringRef.current = false;
+          return;
+        }
+
         const output = results['output'];
         if (!output) {
           isInferringRef.current = false;
@@ -291,7 +300,6 @@ function NCAScene({
 
         stateRef.current = output;
         
-        // Report biomass metrics periodically
         if (frameCountRef.current % 10 === 0) {
           const metrics = calculateBiomass(output);
           onBiomassUpdate(metrics);
@@ -315,8 +323,15 @@ function NCAScene({
   }, [brushState.uv]);
 
   const worldBrushRadius = (BRUSH_RADIUS_CELLS / gridWidth) * 4;
+
   useEffect(() => {
+    inferenceIdRef.current += 1;
+    isInferringRef.current = false;
     stateRef.current = initialState;
+
+    // Immediately update texture image data on state switch
+    updateTextureFromState(initialState);
+
     const metrics = calculateBiomass(initialState);
     onBiomassUpdate(metrics);
   }, [initialState, onBiomassUpdate]);
