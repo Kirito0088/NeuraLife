@@ -14,6 +14,8 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { HardwareUnsupported } from '../components/HardwareUnsupported';
 import { ControlPanel } from '../components/ControlPanel';
+import { HiddenChannelInspector } from '../components/HiddenChannelInspector';
+import { createInitialState } from '../inference/tensor-utils';
 import type { ControlState, BiomassMetrics } from '../components/ControlPanel';
 
 describe('HardwareUnsupported', () => {
@@ -119,4 +121,61 @@ describe('ControlPanel Damage Presets', () => {
     expect(onApplyDamagePreset).toHaveBeenCalledWith('small_hole');
   });
 });
+
+describe('HiddenChannelInspector', () => {
+  const dummyTensor = createInitialState(16, 16);
+
+  it('does not render when isOpen is false', () => {
+    const { container } = render(
+      <HiddenChannelInspector
+        isOpen={false}
+        onClose={vi.fn()}
+        stateTensor={dummyTensor}
+        gridWidth={16}
+        gridHeight={16}
+        active3DChannel={-1}
+        onSelect3DChannel={vi.fn()}
+      />
+    );
+    expect(container.querySelector('#hidden-channel-inspector-modal')).toBeNull();
+  });
+
+  it('renders the inspector modal with header and filter controls when isOpen is true', () => {
+    const { container } = render(
+      <HiddenChannelInspector
+        isOpen={true}
+        onClose={vi.fn()}
+        stateTensor={dummyTensor}
+        gridWidth={16}
+        gridHeight={16}
+        active3DChannel={-1}
+        onSelect3DChannel={vi.fn()}
+      />
+    );
+    expect(container.querySelector('#hidden-channel-inspector-modal')).not.toBeNull();
+    expect(screen.getByText(/16-Channel Latent Memory Inspector/i)).toBeDefined();
+    expect(container.querySelector('#filter-all-btn')).not.toBeNull();
+    expect(container.querySelector('#filter-visible-btn')).not.toBeNull();
+    expect(container.querySelector('#filter-hidden-btn')).not.toBeNull();
+  });
+
+  it('calls onClose when close button is clicked', () => {
+    const onClose = vi.fn();
+    const { container } = render(
+      <HiddenChannelInspector
+        isOpen={true}
+        onClose={onClose}
+        stateTensor={dummyTensor}
+        gridWidth={16}
+        gridHeight={16}
+        active3DChannel={-1}
+        onSelect3DChannel={vi.fn()}
+      />
+    );
+    const closeBtn = container.querySelector('#close-inspector-btn') as HTMLElement;
+    fireEvent.click(closeBtn);
+    expect(onClose).toHaveBeenCalled();
+  });
+});
+
 

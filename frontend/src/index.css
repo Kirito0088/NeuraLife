@@ -1,9 +1,11 @@
 /*
- * NeuraLife — Base Styles
+ * NeuraLife — Design System Styles
  *
  * Dark theme foundation for the NCA canvas application.
- * Full-viewport layout with centered content.
+ * Full-viewport layout with cyber-neon glassmorphism and subtle glowing accents.
  */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&family=Outfit:wght@500;700;800;900&display=swap');
 
 *,
 *::before,
@@ -15,20 +17,23 @@
 
 :root {
   /* Colour tokens */
-  --nl-bg-primary: #0a0a0f;
-  --nl-bg-surface: #111118;
-  --nl-text-primary: #e0e0e6;
-  --nl-text-secondary: #9ca3af;
-  --nl-text-muted: #6b7280;
+  --nl-bg-primary: #07070c;
+  --nl-bg-surface: #0f0f18;
+  --nl-bg-glass: rgba(15, 15, 26, 0.85);
+  --nl-text-primary: #f8fafc;
+  --nl-text-secondary: #94a3b8;
+  --nl-text-muted: #64748b;
   --nl-accent: #6366f1;
-  --nl-accent-glow: rgba(99, 102, 241, 0.15);
+  --nl-accent-cyan: #38bdf8;
+  --nl-accent-emerald: #10b981;
+  --nl-accent-glow: rgba(99, 102, 241, 0.25);
   --nl-error: #ef4444;
-  --nl-success: #00ffa3;
+  --nl-success: #10b981;
 
   /* Typography */
-  --nl-font-sans: 'Inter', 'Segoe UI', -apple-system, BlinkMacSystemFont,
-    sans-serif;
-  --nl-font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+  --nl-font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --nl-font-heading: 'Outfit', 'Inter', sans-serif;
+  --nl-font-mono: 'JetBrains Mono', 'Fira Code', monospace;
 
   /* Spacing scale (4px base) */
   --nl-space-1: 4px;
@@ -48,7 +53,7 @@ body {
   background: var(--nl-bg-primary);
   color: var(--nl-text-primary);
   font-family: var(--nl-font-sans);
-  font-size: 16px;
+  font-size: 15px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -58,6 +63,48 @@ body {
 #root {
   height: 100%;
   width: 100%;
+}
+
+/* Custom Webkit Scrollbars for Modals & Drawers */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(10, 10, 20, 0.5);
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(99, 102, 241, 0.3);
+  border-radius: 99px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(99, 102, 241, 0.6);
+}
+
+@keyframes nca-fade-in {
+  from {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes nca-pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 15px rgba(99, 102, 241, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 30px rgba(99, 102, 241, 0.6);
+  }
+}
+
+@keyframes nca-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* Ensure images and videos don't overflow */

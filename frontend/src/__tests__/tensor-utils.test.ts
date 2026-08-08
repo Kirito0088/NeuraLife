@@ -17,6 +17,10 @@ import {
   damageScatter,
   damageSmallHole,
   applyDamagePreset,
+  sampleColormap,
+  extractChannelAsImageData,
+  extractAllChannelSnapshots,
+  CHANNEL_METADATA,
 } from '../inference/tensor-utils';
 
 describe('createInitialState', () => {
@@ -317,3 +321,64 @@ describe('damage presets', () => {
     expect((tHole.data as Float32Array)[0 * H * W + 10 * W + 10]).toBe(0.0);
   });
 });
+
+describe('Hidden Channel Extraction & Colormapping', () => {
+  const H = 8;
+  const W = 8;
+  const CHANNELS = 16;
+
+  function createTestTensor(): Tensor {
+    const data = new Float32Array(1 * CHANNELS * H * W);
+    for (let c = 0; c < CHANNELS; c++) {
+      for (let y = 0; y < H; y++) {
+        for (let x = 0; x < W; x++) {
+          data[c * H * W + y * W + x] = (c + 1) * 0.1;
+        }
+      }
+    }
+    return new Tensor('float32', data, [1, CHANNELS, H, W]);
+  }
+
+  it('CHANNEL_METADATA contains 16 correctly indexed channels', () => {
+    expect(CHANNEL_METADATA.length).toBe(16);
+    expect(CHANNEL_METADATA[0].name).toContain('Red');
+    expect(CHANNEL_METADATA[3].name).toContain('Alpha');
+    expect(CHANNEL_METADATA[4].category).toBe('hidden');
+    expect(CHANNEL_METADATA[15].category).toBe('hidden');
+  });
+
+  it('sampleColormap generates RGB triples in [0, 255] range across all colormap modes', () => {
+    const colormaps = ['viridis', 'plasma', 'turbo', 'grayscale'] as const;
+    colormaps.forEach((cm) => {
+      const [r0, g0, b0] = sampleColormap(0.0, cm);
+      const [r5, g5, b5] = sampleColormap(0.5, cm);
+      const [r1, g1, b1] = sampleColormap(1.0, cm);
+
+      [r0, g0, b0, r5, g5, b5, r1, g1, b1].forEach((val) => {
+        expect(val).toBeGreaterThanOrEqual(0);
+        expect(val).toBeLessThanOrEqual(255);
+      });
+    });
+  });
+
+  it('extractChannelAsImageData correctly extracts pixel data and computes stats', () => {
+    const tensor = createTestTensor();
+    const snap = extractChannelAsImageData(tensor, 4, H, W, 'viridis');
+
+    expect(snap.index).toBe(4);
+    expect(snap.pixels).toBeInstanceOf(Uint8ClampedArray);
+    expect(snap.pixels.length).toBe(H * W * 4);
+    expect(snap.meanEnergy).toBeGreaterThan(0);
+    expect(snap.info.category).toBe('hidden');
+  });
+
+  it('extractAllChannelSnapshots extracts all 16 channels in order', () => {
+    const tensor = createTestTensor();
+    const all = extractAllChannelSnapshots(tensor, H, W, 'plasma');
+
+    expect(all.length).toBe(16);
+    expect(all[0].index).toBe(0);
+    expect(all[15].index).toBe(15);
+  });
+});
+

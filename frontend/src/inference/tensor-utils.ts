@@ -459,3 +459,187 @@ export function calculateBiomass(tensor: ort.Tensor): {
   const biomassPercent = Number(((activeCells / totalCells) * 100).toFixed(1));
   return { activeCells, totalCells, biomassPercent };
 }
+
+export interface ChannelInfo {
+  index: number;
+  name: string;
+  category: 'visible' | 'hidden';
+  description: string;
+  color: string;
+}
+
+export const CHANNEL_METADATA: ChannelInfo[] = [
+  { index: 0, name: 'Red (R)', category: 'visible', description: 'Visible Red Channel (RGBA)', color: '#ef4444' },
+  { index: 1, name: 'Green (G)', category: 'visible', description: 'Visible Green Channel (RGBA)', color: '#10b981' },
+  { index: 2, name: 'Blue (B)', category: 'visible', description: 'Visible Blue Channel (RGBA)', color: '#3b82f6' },
+  { index: 3, name: 'Alpha (A)', category: 'visible', description: 'Living Boundary Mask', color: '#a855f7' },
+  { index: 4, name: 'Hidden 1 (h₁)', category: 'hidden', description: 'Emergent X-Spatial Gradient', color: '#06b6d4' },
+  { index: 5, name: 'Hidden 2 (h₂)', category: 'hidden', description: 'Emergent Y-Spatial Gradient', color: '#0ea5e9' },
+  { index: 6, name: 'Hidden 3 (h₃)', category: 'hidden', description: 'Morphogenetic Density Core', color: '#6366f1' },
+  { index: 7, name: 'Hidden 4 (h₄)', category: 'hidden', description: 'Radial Boundary Attractor', color: '#8b5cf6' },
+  { index: 8, name: 'Hidden 5 (h₅)', category: 'hidden', description: 'Regenerative Memory Signal', color: '#ec4899' },
+  { index: 9, name: 'Hidden 6 (h₆)', category: 'hidden', description: 'Harmonic Phase Alignment', color: '#f43f5e' },
+  { index: 10, name: 'Hidden 7 (h₇)', category: 'hidden', description: 'Bilateral Symmetry Anchor', color: '#f97316' },
+  { index: 11, name: 'Hidden 8 (h₈)', category: 'hidden', description: 'Damage Sensing Potential', color: '#eab308' },
+  { index: 12, name: 'Hidden 9 (h₉)', category: 'hidden', description: 'Mitotic Flow Direction', color: '#84cc16' },
+  { index: 13, name: 'Hidden 10 (h₁₀)', category: 'hidden', description: 'Long-term Memory Buffer', color: '#14b8a6' },
+  { index: 14, name: 'Hidden 11 (h₁₁)', category: 'hidden', description: 'Latent Homeostatic Field', color: '#38bdf8' },
+  { index: 15, name: 'Hidden 12 (h₁₂)', category: 'hidden', description: 'Stem Cell Differentiation', color: '#c084fc' },
+];
+
+export type ColormapType = 'viridis' | 'plasma' | 'turbo' | 'grayscale';
+
+/**
+ * Maps a normalized float [0, 1] to RGB components [0, 255] using standard scientific false-color gradients.
+ */
+export function sampleColormap(t: number, cmap: ColormapType): [number, number, number] {
+  const c = Math.max(0, Math.min(1, t));
+
+  if (cmap === 'grayscale') {
+    const v = Math.round(c * 255);
+    return [v, v, v];
+  }
+
+  if (cmap === 'plasma') {
+    // Plasma colormap polynomial approximation: dark violet -> magenta -> gold
+    const r = Math.round(Math.min(255, Math.max(0, 255 * (0.05 + 1.8 * c - 0.9 * c * c))));
+    const g = Math.round(Math.min(255, Math.max(0, 255 * (0.02 + 0.3 * c + 1.2 * c * c * c))));
+    const b = Math.round(Math.min(255, Math.max(0, 255 * (0.55 + 0.8 * Math.sin(c * Math.PI) - 1.2 * c * c))));
+    return [r, g, b];
+  }
+
+  if (cmap === 'turbo') {
+    // Turbo thermal: Deep Blue -> Cyan -> Green -> Yellow -> Red
+    const r = Math.round(Math.min(255, Math.max(0, 255 * (0.13 + 3.1 * c - 2.8 * c * c))));
+    const g = Math.round(Math.min(255, Math.max(0, 255 * (255 * Math.sin(c * Math.PI)) / 255)));
+    const b = Math.round(Math.min(255, Math.max(0, 255 * (0.8 - 2.0 * c + 1.5 * c * c))));
+    return [r, g, b];
+  }
+
+  // Default Viridis: Deep purple -> Teal -> Vibrant Yellow
+  // Standard 5-point piecewise linear approximation of Viridis
+  if (c < 0.25) {
+    const u = c / 0.25;
+    return [
+      Math.round(68 + (49 - 68) * u),
+      Math.round(1 + (104 - 1) * u),
+      Math.round(84 + (142 - 84) * u),
+    ];
+  } else if (c < 0.5) {
+    const u = (c - 0.25) / 0.25;
+    return [
+      Math.round(49 + (33 - 49) * u),
+      Math.round(104 + (145 - 104) * u),
+      Math.round(142 + (140 - 142) * u),
+    ];
+  } else if (c < 0.75) {
+    const u = (c - 0.5) / 0.25;
+    return [
+      Math.round(33 + (115 - 33) * u),
+      Math.round(145 + (197 - 145) * u),
+      Math.round(140 + (96 - 140) * u),
+    ];
+  } else {
+    const u = (c - 0.75) / 0.25;
+    return [
+      Math.round(115 + (253 - 115) * u),
+      Math.round(197 + (231 - 197) * u),
+      Math.round(96 + (36 - 96) * u),
+    ];
+  }
+}
+
+export interface ChannelSnapshot {
+  index: number;
+  info: ChannelInfo;
+  pixels: Uint8ClampedArray;
+  min: number;
+  max: number;
+  meanEnergy: number;
+  activePercent: number;
+}
+
+/**
+ * Extracts a single channel from the NCA state tensor and converts it into a false-colored ImageData pixel array.
+ */
+export function extractChannelAsImageData(
+  tensor: ort.Tensor,
+  channelIdx: number,
+  height: number,
+  width: number,
+  colormap: ColormapType = 'viridis'
+): ChannelSnapshot {
+  const totalCells = height * width;
+  const pixels = new Uint8ClampedArray(totalCells * 4);
+  const data = tensor.data as Float32Array;
+  const planeOffset = channelIdx * totalCells;
+
+  let minVal = Infinity;
+  let maxVal = -Infinity;
+  let sumAbs = 0;
+  let activeCells = 0;
+
+  // First pass: compute min, max, sumAbs
+  for (let i = 0; i < totalCells; i++) {
+    const val = data[planeOffset + i];
+    if (val < minVal) minVal = val;
+    if (val > maxVal) maxVal = val;
+    const absVal = Math.abs(val);
+    sumAbs += absVal;
+    if (absVal > 0.05) activeCells++;
+  }
+
+  if (minVal === Infinity) minVal = 0;
+  if (maxVal === -Infinity) maxVal = 1;
+  const range = maxVal - minVal > 1e-6 ? maxVal - minVal : 1.0;
+
+  // Second pass: apply false-color mapping
+  for (let i = 0; i < totalCells; i++) {
+    const rawVal = data[planeOffset + i];
+    const norm = (rawVal - minVal) / range;
+    const [r, g, b] = sampleColormap(norm, colormap);
+    const pxIdx = i * 4;
+    pixels[pxIdx + 0] = r;
+    pixels[pxIdx + 1] = g;
+    pixels[pxIdx + 2] = b;
+    pixels[pxIdx + 3] = 255;
+  }
+
+  const info = CHANNEL_METADATA[channelIdx] ?? {
+    index: channelIdx,
+    name: `Channel ${channelIdx}`,
+    category: channelIdx < 4 ? 'visible' : 'hidden',
+    description: `State channel ${channelIdx}`,
+    color: '#818cf8',
+  };
+
+  return {
+    index: channelIdx,
+    info,
+    pixels,
+    min: Number(minVal.toFixed(3)),
+    max: Number(maxVal.toFixed(3)),
+    meanEnergy: Number((sumAbs / totalCells).toFixed(3)),
+    activePercent: Number(((activeCells / totalCells) * 100).toFixed(1)),
+  };
+}
+
+/**
+ * Extracts all 16 state channels for the Live Hidden Channel Inspector.
+ */
+export function extractAllChannelSnapshots(
+  tensor: ort.Tensor,
+  height: number,
+  width: number,
+  colormap: ColormapType = 'viridis'
+): ChannelSnapshot[] {
+  const dims = tensor.dims;
+  const channels = dims.length === 4 ? dims[1] : 16;
+  const snapshots: ChannelSnapshot[] = [];
+
+  for (let c = 0; c < channels; c++) {
+    snapshots.push(extractChannelAsImageData(tensor, c, height, width, colormap));
+  }
+
+  return snapshots;
+}
