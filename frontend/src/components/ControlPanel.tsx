@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import type { DamagePresetType } from '../inference';
 
 export type PatternPreset = 'morpho-ring' | 'glowing-emblem' | 'shield';
 export type BrushMode = 'damage' | 'growth';
@@ -28,6 +29,7 @@ interface ControlPanelProps {
   onChange: (next: ControlState) => void;
   onReset: () => void;
   onImageUpload: (file: File) => void;
+  onApplyDamagePreset?: (preset: DamagePresetType) => void;
 }
 
 const PATTERNS: { id: PatternPreset; label: string; emoji: string; description: string }[] = [
@@ -43,7 +45,14 @@ const PALETTES: { id: PaletteMode; label: string; color: string }[] = [
   { id: 'hologram', label: 'Ice Hologram', color: '#38bdf8' },
 ];
 
-export function ControlPanel({ controls, biomass, onChange, onReset, onImageUpload }: ControlPanelProps) {
+const DAMAGE_PRESETS: { id: DamagePresetType; label: string; emoji: string; sub: string }[] = [
+  { id: 'cut_half', label: 'Cut Half', emoji: '✂️', sub: 'Right 50%' },
+  { id: 'cut_center', label: 'Cut Center', emoji: '🕳️', sub: 'Central Box' },
+  { id: 'scatter', label: 'Scatter', emoji: '🌌', sub: '40% Random' },
+  { id: 'small_hole', label: 'Center Hole', emoji: '⭕', sub: 'Cavity' },
+];
+
+export function ControlPanel({ controls, biomass, onChange, onReset, onImageUpload, onApplyDamagePreset }: ControlPanelProps) {
   const [open, setOpen] = useState(true);
 
   const set = useCallback(
@@ -199,6 +208,53 @@ export function ControlPanel({ controls, biomass, onChange, onReset, onImageUplo
               >
                 🌱 Seed Growth
               </button>
+            </div>
+          </section>
+
+          {/* Damage Presets Section */}
+          <section id="damage-presets-section">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Label>Damage Presets</Label>
+              <span style={{ fontSize: 9, color: '#f87171', fontWeight: 700, letterSpacing: '0.08em' }}>CATASTROPHIC</span>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 7, marginTop: 8 }}>
+              {DAMAGE_PRESETS.map((d) => (
+                <button
+                  key={d.id}
+                  id={`damage-preset-${d.id}`}
+                  onClick={() => onApplyDamagePreset?.(d.id)}
+                  style={{
+                    padding: '8px 10px',
+                    borderRadius: 8,
+                    border: '1px solid rgba(239, 68, 68, 0.25)',
+                    background: 'rgba(239, 68, 68, 0.08)',
+                    color: '#fca5a5',
+                    fontSize: 11,
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'flex-start',
+                    gap: 2,
+                    transition: 'all 0.15s',
+                    textAlign: 'left',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = 'rgba(239, 68, 68, 0.22)';
+                    e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.55)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = 'rgba(239, 68, 68, 0.08)';
+                    e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.25)';
+                  }}
+                >
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11 }}>
+                    <span>{d.emoji}</span>
+                    <span style={{ fontWeight: 700 }}>{d.label}</span>
+                  </span>
+                  <span style={{ fontSize: 9, color: '#fca5a5aa', letterSpacing: '0.02em' }}>{d.sub}</span>
+                </button>
+              ))}
             </div>
           </section>
 

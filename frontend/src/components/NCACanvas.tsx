@@ -16,7 +16,9 @@ import {
   calculateBiomass,
   populateTestPattern,
   populateFromImage,
+  applyDamagePreset,
 } from '../inference';
+import type { DamagePresetType } from '../inference';
 import { HardwareUnsupported } from './HardwareUnsupported';
 import { FPSCounter } from './FPSCounter';
 import Plasma from './Plasma';
@@ -53,6 +55,7 @@ function NCAScene({
   paletteMode,
   paused,
   stepMultiplier,
+  damagePresetTrigger,
   onBiomassUpdate,
 }: {
   session: InferenceSession;
@@ -66,6 +69,7 @@ function NCAScene({
   paletteMode: 'neon' | 'emerald' | 'solar' | 'hologram';
   paused: boolean;
   stepMultiplier: number;
+  damagePresetTrigger: { id: DamagePresetType; timestamp: number } | null;
   onBiomassUpdate: (metrics: { activeCells: number; totalCells: number; biomassPercent: number }) => void;
 }) {
   const stateRef = useRef<Tensor>(initialState);
@@ -82,7 +86,50 @@ function NCAScene({
 
   const BRUSH_RADIUS_CELLS = brushRadius;
 
-  const inferenceIdRef = useRef(0);
+  const skipFramesRef = useRef(0);
+  const lastTimeRef = useRef(0);
+  const frameTimesRef = useRef<number[]>([]);
+
+  const texture = useMemo(() => {
+    const size = gridWidth * gridHeight * 4;
+    const data = new Uint8Array(size);
+    const rgba = extractRGBA(initialState, gridHeight, gridWidth);
+    data.set(rgba);
+
+    const tex = new THREE.DataTexture(
+      data,
+      gridWidth,
+      gridHeight,
+      THREE.RGBAFormat,
+      THREE.UnsignedByteType,
+    );
+    tex.magFilter = THREE.NearestFilter;
+    tex.minFilter = THREE.NearestFilter;
+    tex.needsUpdate = true;
+    return tex;
+  }, [gridWidth, gridHeight, initialState]);
+
+  const paletteModeInt = useMemo(() => {
+    switch (paletteMode) {
+      case 'emerald': return 1;
+      case 'solar': return 2;
+      case 'hologram': return 3;
+      default: return 0; // neon
+    }
+  }, [paletteMode]);
+
+  // Apply catastrophic preset damage when triggered
+  useEffect(() => {
+    if (!damagePresetTrigger || !stateRef.current) return;
+    applyDamagePreset(stateRef.current, damagePresetTrigger.id);
+    const rgba = extractRGBA(stateRef.current, gridHeight, gridWidth);
+    if (texture.image && texture.image.data) {
+      (texture.image.data as Uint8Array).set(rgba);
+      texture.needsUpdate = true;
+    }
+    const metrics = calculateBiomass(stateRef.current);
+    onBiomassUpdate(metrics);
+  }, [damagePresetTrigger, gridHeight, gridWidth, texture, onBiomassUpdate]);
 
   const applyBrushToState = (uv: { x: number; y: number }) => {
     if (!stateRef.current) return;
@@ -131,37 +178,7 @@ function NCAScene({
     setBrushState({ uv: null, isDown: false });
   };
 
-  const skipFramesRef = useRef(0);
-  const lastTimeRef = useRef(0);
-  const frameTimesRef = useRef<number[]>([]);
-
-  const texture = useMemo(() => {
-    const size = gridWidth * gridHeight * 4;
-    const data = new Uint8Array(size);
-    const rgba = extractRGBA(initialState, gridHeight, gridWidth);
-    data.set(rgba);
-
-    const tex = new THREE.DataTexture(
-      data,
-      gridWidth,
-      gridHeight,
-      THREE.RGBAFormat,
-      THREE.UnsignedByteType,
-    );
-    tex.magFilter = THREE.NearestFilter;
-    tex.minFilter = THREE.NearestFilter;
-    tex.needsUpdate = true;
-    return tex;
-  }, [gridWidth, gridHeight, initialState]);
-
-  const paletteModeInt = useMemo(() => {
-    switch (paletteMode) {
-      case 'emerald': return 1;
-      case 'solar': return 2;
-      case 'hologram': return 3;
-      default: return 0; // neon
-    }
-  }, [paletteMode]);
+  const inferenceIdRef = useRef(0);
 
   const shaderArgs = useMemo(() => {
     return {
@@ -399,6 +416,15 @@ export function NCACanvas() {
     biomassPercent: 0,
   });
 
+  const [damagePresetTrigger, setDamagePresetTrigger] = useState<{
+    id: DamagePresetType;
+    timestamp: number;
+  } | null>(null);
+
+  const handleApplyDamagePreset = useCallback((preset: DamagePresetType) => {
+    setDamagePresetTrigger({ id: preset, timestamp: Date.now() });
+  }, []);
+
   const handleReset = useCallback(() => {
     const fresh = createInitialState(GRID_HEIGHT, GRID_WIDTH);
     populateTestPattern(fresh, controls.pattern);
@@ -596,6 +622,7 @@ export function NCACanvas() {
               paletteMode={controls.paletteMode}
               paused={controls.paused}
               stepMultiplier={controls.stepMultiplier}
+              damagePresetTrigger={damagePresetTrigger}
               onBiomassUpdate={setBiomass}
             />
           </Canvas>
@@ -621,6 +648,7 @@ export function NCACanvas() {
         onChange={setControls}
         onReset={handleReset}
         onImageUpload={handleImageUpload}
+        onApplyDamagePreset={handleApplyDamagePreset}
       />
     </div>
   );

@@ -10,9 +10,11 @@
  * in tests/e2e/ (Omkar's domain — TICK-03+).
  */
 
-import { describe, it, expect } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { describe, it, expect, vi } from 'vitest';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { HardwareUnsupported } from '../components/HardwareUnsupported';
+import { ControlPanel } from '../components/ControlPanel';
+import type { ControlState, BiomassMetrics } from '../components/ControlPanel';
 
 describe('HardwareUnsupported', () => {
   it('renders the "Hardware Unsupported" heading', () => {
@@ -49,3 +51,72 @@ describe('HardwareUnsupported', () => {
     expect(video).toBeNull();
   });
 });
+
+describe('ControlPanel Damage Presets', () => {
+  const dummyControls: ControlState = {
+    pattern: 'morpho-ring',
+    brushMode: 'damage',
+    brushRadius: 6,
+    heightScale: 0.4,
+    normalStrength: 0.8,
+    paletteMode: 'neon',
+    paused: false,
+    autoRotate: true,
+    stepMultiplier: 1,
+  };
+
+  const dummyBiomass: BiomassMetrics = {
+    activeCells: 500,
+    totalCells: 16384,
+    biomassPercent: 3.1,
+  };
+
+  it('renders all 4 catastrophic damage preset buttons', () => {
+    const { container } = render(
+      <ControlPanel
+        controls={dummyControls}
+        biomass={dummyBiomass}
+        onChange={vi.fn()}
+        onReset={vi.fn()}
+        onImageUpload={vi.fn()}
+        onApplyDamagePreset={vi.fn()}
+      />
+    );
+
+    expect(container.querySelector('#damage-preset-cut_half')).not.toBeNull();
+    expect(container.querySelector('#damage-preset-cut_center')).not.toBeNull();
+    expect(container.querySelector('#damage-preset-scatter')).not.toBeNull();
+    expect(container.querySelector('#damage-preset-small_hole')).not.toBeNull();
+  });
+
+  it('triggers onApplyDamagePreset with the correct ID when clicked', () => {
+    const onApplyDamagePreset = vi.fn();
+    const { container } = render(
+      <ControlPanel
+        controls={dummyControls}
+        biomass={dummyBiomass}
+        onChange={vi.fn()}
+        onReset={vi.fn()}
+        onImageUpload={vi.fn()}
+        onApplyDamagePreset={onApplyDamagePreset}
+      />
+    );
+
+    const cutHalfBtn = container.querySelector('#damage-preset-cut_half') as HTMLElement;
+    fireEvent.click(cutHalfBtn);
+    expect(onApplyDamagePreset).toHaveBeenCalledWith('cut_half');
+
+    const cutCenterBtn = container.querySelector('#damage-preset-cut_center') as HTMLElement;
+    fireEvent.click(cutCenterBtn);
+    expect(onApplyDamagePreset).toHaveBeenCalledWith('cut_center');
+
+    const scatterBtn = container.querySelector('#damage-preset-scatter') as HTMLElement;
+    fireEvent.click(scatterBtn);
+    expect(onApplyDamagePreset).toHaveBeenCalledWith('scatter');
+
+    const smallHoleBtn = container.querySelector('#damage-preset-small_hole') as HTMLElement;
+    fireEvent.click(smallHoleBtn);
+    expect(onApplyDamagePreset).toHaveBeenCalledWith('small_hole');
+  });
+});
+

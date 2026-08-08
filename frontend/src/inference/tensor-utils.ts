@@ -250,6 +250,136 @@ export function applyDamage(
   }
 }
 
+export type DamagePresetType = 'cut_half' | 'cut_center' | 'scatter' | 'small_hole';
+
+/**
+ * Kills the right half of the cell grid (x >= width / 2).
+ */
+export function damageCutHalf(tensor: ort.Tensor): void {
+  const dims = tensor.dims;
+  if (dims.length !== 4) return;
+  const channels = dims[1];
+  const height = dims[2];
+  const width = dims[3];
+  const data = tensor.data as Float32Array;
+  const planeSize = height * width;
+  const midX = Math.floor(width / 2);
+
+  for (let y = 0; y < height; y++) {
+    for (let x = midX; x < width; x++) {
+      const spatialIdx = y * width + x;
+      for (let c = 0; c < channels; c++) {
+        data[c * planeSize + spatialIdx] = 0.0;
+      }
+    }
+  }
+}
+
+/**
+ * Kills the central 50% region of the grid.
+ */
+export function damageCutCenter(tensor: ort.Tensor): void {
+  const dims = tensor.dims;
+  if (dims.length !== 4) return;
+  const channels = dims[1];
+  const height = dims[2];
+  const width = dims[3];
+  const data = tensor.data as Float32Array;
+  const planeSize = height * width;
+
+  const h1 = Math.floor(height / 4);
+  const h2 = Math.floor((3 * height) / 4);
+  const w1 = Math.floor(width / 4);
+  const w2 = Math.floor((3 * width) / 4);
+
+  for (let y = h1; y < h2; y++) {
+    for (let x = w1; x < w2; x++) {
+      const spatialIdx = y * width + x;
+      for (let c = 0; c < channels; c++) {
+        data[c * planeSize + spatialIdx] = 0.0;
+      }
+    }
+  }
+}
+
+/**
+ * Randomly kills a percentage of cells (default 40%) across the grid.
+ */
+export function damageScatter(tensor: ort.Tensor, scatterRatio: number = 0.4): void {
+  const dims = tensor.dims;
+  if (dims.length !== 4) return;
+  const channels = dims[1];
+  const height = dims[2];
+  const width = dims[3];
+  const data = tensor.data as Float32Array;
+  const planeSize = height * width;
+
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      if (Math.random() < scatterRatio) {
+        const spatialIdx = y * width + x;
+        for (let c = 0; c < channels; c++) {
+          data[c * planeSize + spatialIdx] = 0.0;
+        }
+      }
+    }
+  }
+}
+
+/**
+ * Excavates a circular cavity in the center of the grid.
+ */
+export function damageSmallHole(tensor: ort.Tensor, radius?: number): void {
+  const dims = tensor.dims;
+  if (dims.length !== 4) return;
+  const channels = dims[1];
+  const height = dims[2];
+  const width = dims[3];
+  const data = tensor.data as Float32Array;
+  const planeSize = height * width;
+
+  const cy = height / 2;
+  const cx = width / 2;
+  const rad = radius ?? Math.min(height, width) / 5;
+  const radiusSq = rad * rad;
+
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const dy = (y + 0.5) - cy;
+      const dx = (x + 0.5) - cx;
+      if (dx * dx + dy * dy <= radiusSq) {
+        const spatialIdx = y * width + x;
+        for (let c = 0; c < channels; c++) {
+          data[c * planeSize + spatialIdx] = 0.0;
+        }
+      }
+    }
+  }
+}
+
+/**
+ * Unified dispatcher to apply damage presets to an NCA state tensor.
+ */
+export function applyDamagePreset(
+  tensor: ort.Tensor,
+  damageType: DamagePresetType
+): void {
+  switch (damageType) {
+    case 'cut_half':
+      damageCutHalf(tensor);
+      break;
+    case 'cut_center':
+      damageCutCenter(tensor);
+      break;
+    case 'scatter':
+      damageScatter(tensor);
+      break;
+    case 'small_hole':
+      damageSmallHole(tensor);
+      break;
+  }
+}
+
 /**
  * Plants fresh high-energy seed cells in a radius for the Growth/Seed brush.
  */
