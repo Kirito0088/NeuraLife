@@ -62,6 +62,8 @@ describe('ControlPanel Damage Presets', () => {
     heightScale: 0.4,
     normalStrength: 0.8,
     paletteMode: 'neon',
+    visualMode: 'bio-membrane',
+    simulationEngine: 'morphogenesis',
     paused: false,
     autoRotate: true,
     stepMultiplier: 1,
@@ -75,7 +77,7 @@ describe('ControlPanel Damage Presets', () => {
     biomassPercent: 3.1,
   };
 
-  it('renders all 4 catastrophic damage preset buttons', () => {
+  it('renders all 4 catastrophic damage preset buttons in tools tab', () => {
     const { container } = render(
       <ControlPanel
         controls={dummyControls}
@@ -86,6 +88,10 @@ describe('ControlPanel Damage Presets', () => {
         onApplyDamagePreset={vi.fn()}
       />
     );
+
+    // Switch to Interact tab
+    const interactTabBtn = screen.getByText(/interact/i);
+    fireEvent.click(interactTabBtn);
 
     expect(container.querySelector('#damage-preset-cut_half')).not.toBeNull();
     expect(container.querySelector('#damage-preset-cut_center')).not.toBeNull();
@@ -105,6 +111,10 @@ describe('ControlPanel Damage Presets', () => {
         onApplyDamagePreset={onApplyDamagePreset}
       />
     );
+
+    // Switch to Interact tab
+    const interactTabBtn = screen.getByText(/interact/i);
+    fireEvent.click(interactTabBtn);
 
     const cutHalfBtn = container.querySelector('#damage-preset-cut_half') as HTMLElement;
     fireEvent.click(cutHalfBtn);

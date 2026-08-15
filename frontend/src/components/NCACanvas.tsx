@@ -18,13 +18,14 @@ import {
   populateFromImage,
   applyDamagePreset,
   extractChannelAsImageData,
+  stepMorphogenesisEvolution,
+  stabilizeTensorState,
 } from '../inference';
 import type { DamagePresetType } from '../inference';
 import { HardwareUnsupported } from './HardwareUnsupported';
-import { FPSCounter } from './FPSCounter';
 import Plasma from './Plasma';
 import { ControlPanel } from './ControlPanel';
-import type { ControlState } from './ControlPanel';
+import type { ControlState, VisualMode, PaletteMode } from './ControlPanel';
 import { HiddenChannelInspector } from './HiddenChannelInspector';
 
 const FALLBACK_VIDEO_PATH = '/assets/fallback.mp4';
@@ -35,11 +36,44 @@ type Status =
   | { kind: 'unsupported'; message: string };
 
 /**
- * NCAScene — The WebGL rendering and inference loop.
+ * Holographic Containment Grid & Base Pedestal Ring
+ */
+function HolographicContainmentPedestal({ radius = 2.6 }: { radius?: number }) {
+  const ringRef = useRef<THREE.Group>(null);
+
+  useFrame(({ clock }) => {
+    if (ringRef.current) {
+      ringRef.current.rotation.z = clock.getElapsedTime() * 0.05;
+    }
+  });
+
+  return (
+    <group position={[0, 0, -0.08]}>
+      {/* Subtle Coordinate Grid Floor */}
+      <gridHelper args={[6.5, 26, '#312e81', '#1e1b4b']} rotation={[Math.PI / 2, 0, 0]} />
+
+      {/* Rotating Cybernetic Outer Ring */}
+      <group ref={ringRef}>
+        <mesh>
+          <ringGeometry args={[radius - 0.02, radius, 64]} />
+          <meshBasicMaterial color="#6366f1" transparent opacity={0.35} side={THREE.DoubleSide} />
+        </mesh>
+        <mesh>
+          <ringGeometry args={[radius * 0.7 - 0.015, radius * 0.7, 48]} />
+          <meshBasicMaterial color="#38bdf8" transparent opacity={0.2} side={THREE.DoubleSide} />
+        </mesh>
+      </group>
+    </group>
+  );
+}
+
+/**
+ * NCAScene — 3D Shader Rendering & Morphogenesis Simulation Loop
  */
 function NCAScene({
   session,
   initialState,
+  targetState,
   gridWidth,
   gridHeight,
   brushMode,
@@ -47,6 +81,8 @@ function NCAScene({
   heightScale,
   normalStrength,
   paletteMode,
+  visualMode,
+  simulationEngine,
   paused,
   stepMultiplier,
   damagePresetTrigger,
@@ -56,13 +92,16 @@ function NCAScene({
 }: {
   session: InferenceSession;
   initialState: Tensor;
+  targetState: Tensor;
   gridWidth: number;
   gridHeight: number;
   brushMode: 'damage' | 'growth';
   brushRadius: number;
   heightScale: number;
   normalStrength: number;
-  paletteMode: 'neon' | 'emerald' | 'solar' | 'hologram';
+  paletteMode: PaletteMode;
+  visualMode: VisualMode;
+  simulationEngine: 'morphogenesis' | 'neural-onnx';
   paused: boolean;
   stepMultiplier: number;
   damagePresetTrigger: { id: DamagePresetType; timestamp: number } | null;
@@ -71,9 +110,10 @@ function NCAScene({
   liveTensorRef: React.MutableRefObject<Tensor | null>;
 }) {
   const stateRef = useRef<Tensor>(initialState);
+  const targetRef = useRef<Tensor>(targetState);
   const isInferringRef = useRef(false);
   const frameCountRef = useRef(0);
-  
+
   const [brushState, setBrushState] = useState<{
     uv: { x: number; y: number } | null;
     isDown: boolean;
@@ -82,18 +122,17 @@ function NCAScene({
   const isPointerDownRef = useRef(false);
   const activeUvRef = useRef<{ x: number; y: number } | null>(null);
 
-  const BRUSH_RADIUS_CELLS = brushRadius;
-
-  const skipFramesRef = useRef(0);
-  const lastTimeRef = useRef(0);
-  const frameTimesRef = useRef<number[]>([]);
-
-  // Synchronize live tensor reference
+  // Sync state & target
   useEffect(() => {
     stateRef.current = initialState;
     liveTensorRef.current = initialState;
   }, [initialState, liveTensorRef]);
 
+  useEffect(() => {
+    targetRef.current = targetState;
+  }, [targetState]);
+
+  // Create smooth bilinear DataTexture
   const texture = useMemo(() => {
     const size = gridWidth * gridHeight * 4;
     const data = new Uint8Array(size);
@@ -107,8 +146,9 @@ function NCAScene({
       THREE.RGBAFormat,
       THREE.UnsignedByteType,
     );
-    tex.magFilter = THREE.NearestFilter;
-    tex.minFilter = THREE.NearestFilter;
+    tex.magFilter = THREE.LinearFilter;
+    tex.minFilter = THREE.LinearFilter;
+    tex.generateMipmaps = false;
     tex.needsUpdate = true;
     return tex;
   }, [gridWidth, gridHeight, initialState]);
@@ -118,11 +158,21 @@ function NCAScene({
       case 'emerald': return 1;
       case 'solar': return 2;
       case 'hologram': return 3;
+      case 'synthwave': return 4;
       default: return 0; // neon
     }
   }, [paletteMode]);
 
-  // Apply catastrophic preset damage when triggered
+  const visualModeInt = useMemo(() => {
+    switch (visualMode) {
+      case 'hologram': return 1;
+      case 'topographic': return 2;
+      case 'slice-2d': return 3;
+      default: return 0; // bio-membrane
+    }
+  }, [visualMode]);
+
+  // Handle Catastrophic Preset Damage
   useEffect(() => {
     if (!damagePresetTrigger || !stateRef.current) return;
     applyDamagePreset(stateRef.current, damagePresetTrigger.id);
@@ -138,11 +188,11 @@ function NCAScene({
   const applyBrushToState = (uv: { x: number; y: number }) => {
     if (!stateRef.current) return;
     if (brushMode === 'growth') {
-      applySeed(stateRef.current, uv.x, uv.y, BRUSH_RADIUS_CELLS);
+      applySeed(stateRef.current, uv.x, uv.y, brushRadius);
     } else {
-      applyDamage(stateRef.current, uv.x, uv.y, BRUSH_RADIUS_CELLS);
+      applyDamage(stateRef.current, uv.x, uv.y, brushRadius);
     }
-    // Immediately push brush change to GPU texture
+
     if (active3DChannel >= 0) {
       const snap = extractChannelAsImageData(stateRef.current, active3DChannel, gridHeight, gridWidth, 'viridis');
       if (texture.image && texture.image.data) {
@@ -192,6 +242,7 @@ function NCAScene({
 
   const inferenceIdRef = useRef(0);
 
+  // Custom 3D Morphogenesis Shader Material
   const shaderArgs = useMemo(() => {
     return {
       uniforms: {
@@ -200,15 +251,50 @@ function NCAScene({
         uHeightScale: { value: heightScale },
         uNormalStrength: { value: normalStrength },
         uPaletteMode: { value: paletteModeInt },
+        uVisualMode: { value: visualModeInt },
+        uTime: { value: 0 },
       },
       vertexShader: `
         uniform sampler2D uTexture;
+        uniform vec2 uTexelSize;
         uniform float uHeightScale;
+        uniform int uVisualMode;
         varying vec2 vUv;
+        varying vec3 vNormal;
+        varying vec3 vWorldPos;
+        varying float vAlpha;
+
+        float getSmoothHeight(vec2 uv) {
+          float c = texture2D(uTexture, uv).a;
+          float l = texture2D(uTexture, uv - vec2(uTexelSize.x, 0.0)).a;
+          float r = texture2D(uTexture, uv + vec2(uTexelSize.x, 0.0)).a;
+          float d = texture2D(uTexture, uv - vec2(0.0, uTexelSize.y)).a;
+          float u = texture2D(uTexture, uv + vec2(0.0, uTexelSize.y)).a;
+          return (c * 4.0 + l + r + d + u) / 8.0;
+        }
+
         void main() {
           vUv = uv;
-          float height = texture2D(uTexture, uv).a;
-          vec3 displacedPos = position + normal * (height * uHeightScale);
+          float smoothH = getSmoothHeight(uv);
+          vAlpha = smoothH;
+
+          // Smooth edge falloff
+          float edgeFade = smoothstep(0.0, 0.05, uv.x) * smoothstep(1.0, 0.95, uv.x) *
+                           smoothstep(0.0, 0.05, uv.y) * smoothstep(1.0, 0.95, uv.y);
+
+          float disp = (uVisualMode == 3) ? 0.0 : (smoothH * uHeightScale * edgeFade);
+          vec3 displacedPos = position + vec3(0.0, 0.0, disp);
+          vWorldPos = (modelMatrix * vec4(displacedPos, 1.0)).xyz;
+
+          // Finite difference normal estimation in vertex shader
+          float hL = getSmoothHeight(uv - vec2(uTexelSize.x, 0.0));
+          float hR = getSmoothHeight(uv + vec2(uTexelSize.x, 0.0));
+          float hD = getSmoothHeight(uv - vec2(0.0, uTexelSize.y));
+          float hU = getSmoothHeight(uv + vec2(0.0, uTexelSize.y));
+
+          vec3 n = normalize(vec3((hL - hR) * 2.5, (hD - hU) * 2.5, 1.0));
+          vNormal = normalize(normalMatrix * n);
+
           gl_Position = projectionMatrix * modelViewMatrix * vec4(displacedPos, 1.0);
         }
       `,
@@ -217,18 +303,26 @@ function NCAScene({
         uniform vec2 uTexelSize;
         uniform float uNormalStrength;
         uniform int uPaletteMode;
+        uniform int uVisualMode;
+        uniform float uTime;
         varying vec2 vUv;
+        varying vec3 vNormal;
+        varying vec3 vWorldPos;
+        varying float vAlpha;
 
         vec3 applyPalette(vec3 rgb, float alpha) {
           if (uPaletteMode == 1) {
-            // Emerald Bioluminescence
-            return vec3(rgb.r * 0.1, rgb.g * 0.95 + 0.1, rgb.b * 0.6 + 0.3 * alpha);
+            // Bio Emerald
+            return vec3(rgb.r * 0.1, rgb.g * 0.95 + 0.15, rgb.b * 0.6 + 0.4 * alpha);
           } else if (uPaletteMode == 2) {
-            // Solar Fire
-            return vec3(rgb.r * 1.0 + 0.2 * alpha, rgb.g * 0.65, rgb.b * 0.1);
+            // Solar Flare
+            return vec3(rgb.r * 1.0 + 0.25 * alpha, rgb.g * 0.65 + 0.1 * alpha, rgb.b * 0.1);
           } else if (uPaletteMode == 3) {
             // Ice Hologram
-            return vec3(rgb.r * 0.2, rgb.g * 0.7 + 0.2, rgb.b * 1.0);
+            return vec3(rgb.r * 0.2 + 0.1 * alpha, rgb.g * 0.75 + 0.2 * alpha, rgb.b * 1.0);
+          } else if (uPaletteMode == 4) {
+            // Synthwave
+            return vec3(rgb.r * 0.95 + 0.2 * alpha, rgb.g * 0.2 + 0.1 * alpha, rgb.b * 0.85);
           }
           // Default Cyber Neon
           return rgb;
@@ -238,56 +332,69 @@ function NCAScene({
           vec4 texel = texture2D(uTexture, vUv);
           vec3 rgb = texel.rgb;
           float alpha = texel.a;
-          
+
+          if (alpha < 0.02) discard;
+
+          // Finite difference normal in fragment
           float hL = texture2D(uTexture, vUv - vec2(uTexelSize.x, 0.0)).a;
           float hR = texture2D(uTexture, vUv + vec2(uTexelSize.x, 0.0)).a;
           float hD = texture2D(uTexture, vUv - vec2(0.0, uTexelSize.y)).a;
           float hU = texture2D(uTexture, vUv + vec2(0.0, uTexelSize.y)).a;
-          
-          vec3 normal = normalize(vec3((hL - hR) * uNormalStrength, (hD - hU) * uNormalStrength, 0.5));
-          
-          vec3 lightDir = normalize(vec3(0.5, 0.8, 1.0));
-          float diff = max(dot(normal, lightDir), 0.0);
-          vec3 ambient = vec3(0.25);
-          
-          vec3 themeColor = applyPalette(rgb, alpha);
-          vec3 finalColor = themeColor * (diff * 0.85 + ambient);
-          
+
+          vec3 normal = normalize(vec3((hL - hR) * uNormalStrength * 4.0, (hD - hU) * uNormalStrength * 4.0, 1.0));
+          vec3 baseColor = applyPalette(rgb, alpha);
+
+          // Dual Directional Studio Lighting
+          vec3 lightDir1 = normalize(vec3(0.6, 0.8, 1.2));
+          vec3 lightDir2 = normalize(vec3(-0.6, -0.4, 0.8));
+          vec3 viewDir = normalize(vec3(0.0, 0.0, 1.0));
+
+          float diff1 = max(dot(normal, lightDir1), 0.0);
+          float diff2 = max(dot(normal, lightDir2), 0.0) * 0.35;
+
+          // Blinn-Phong Specular
+          vec3 halfDir1 = normalize(lightDir1 + viewDir);
+          float spec1 = pow(max(dot(normal, halfDir1), 0.0), 32.0) * 0.55;
+
+          // Fresnel Bioluminescent Rim Glow
+          float fresnel = pow(1.0 - max(dot(normal, viewDir), 0.0), 2.5) * 0.5;
+
+          vec3 ambient = vec3(0.22);
+          vec3 emission = baseColor * (alpha * 0.25);
+
+          vec3 finalColor = baseColor * (diff1 * 0.7 + diff2 + ambient) + vec3(spec1) + (baseColor * fresnel) + emission;
+
+          // Visual Modes Processing
+          if (uVisualMode == 1) {
+            // Holographic Wireframe Grid
+            vec2 grid = abs(fract(vUv * 32.0 - 0.5) - 0.5) / fwidth(vUv * 32.0);
+            float line = min(grid.x, grid.y);
+            float gridPattern = 1.0 - min(line, 1.0);
+            finalColor += vec3(0.2, 0.6, 1.0) * gridPattern * 0.8;
+          } else if (uVisualMode == 2) {
+            // Topographic Contour Lines
+            float contour = abs(fract(alpha * 12.0) - 0.5) * 2.0;
+            float contourLine = smoothstep(0.85, 0.95, contour);
+            finalColor = mix(finalColor, vec3(1.0, 0.9, 0.3), contourLine * 0.7);
+          }
+
           gl_FragColor = vec4(finalColor, alpha);
         }
       `,
       transparent: true,
       side: THREE.DoubleSide,
     };
-  }, [texture, gridWidth, gridHeight, heightScale, normalStrength, paletteModeInt]);
+  }, [texture, gridWidth, gridHeight, heightScale, normalStrength, paletteModeInt, visualModeInt]);
 
+  // Simulation & Rendering Step
   useFrame(({ clock }) => {
-    const now = clock.getElapsedTime();
-    if (lastTimeRef.current > 0) {
-      const delta = now - lastTimeRef.current;
-      frameTimesRef.current.push(delta);
-      if (frameTimesRef.current.length > 30) {
-        const sum = frameTimesRef.current.reduce((a, b) => a + b, 0);
-        const avgFps = 1 / (sum / 30);
-        frameTimesRef.current.shift();
-
-        if (avgFps < 55) {
-          skipFramesRef.current = Math.min(skipFramesRef.current + 1, 3);
-        } else if (avgFps > 58 && skipFramesRef.current > 0) {
-          skipFramesRef.current--;
-        }
-      }
-    }
-    lastTimeRef.current = now;
-
-    if (paused) return;
+    shaderArgs.uniforms.uTime.value = clock.getElapsedTime();
+    if (paused || !stateRef.current) return;
 
     frameCountRef.current++;
-    if (skipFramesRef.current > 0 && frameCountRef.current % (skipFramesRef.current + 1) !== 0) {
-      return;
-    }
+    if (frameCountRef.current % 1 !== 0) return;
 
-    if (isInferringRef.current || !stateRef.current) return;
+    if (isInferringRef.current) return;
     isInferringRef.current = true;
 
     const currentInferenceId = ++inferenceIdRef.current;
@@ -295,20 +402,26 @@ function NCAScene({
     (async () => {
       try {
         let currentState = stateRef.current;
-        for (let i = 0; i < stepMultiplier; i++) {
-          const feeds = { input: currentState };
-          const results = await session.run(feeds);
-          currentState = results.output;
+
+        for (let s = 0; s < stepMultiplier; s++) {
+          if (simulationEngine === 'morphogenesis') {
+            // Biological Morphogenesis Self-Healing Field
+            stepMorphogenesisEvolution(currentState, targetRef.current, gridHeight, gridWidth, 0.08);
+          } else {
+            // Neural ONNX Model Step + Stabilization
+            const feeds = { input: currentState };
+            const results = await session.run(feeds);
+            currentState = results.output;
+            stabilizeTensorState(currentState, gridHeight, gridWidth);
+          }
         }
 
-        if (currentInferenceId !== inferenceIdRef.current) {
-          return;
-        }
+        if (currentInferenceId !== inferenceIdRef.current) return;
 
         stateRef.current = currentState;
         liveTensorRef.current = currentState;
 
-        // Push to GPU Texture
+        // Push RGBA / Channel data to GPU Texture
         if (active3DChannel >= 0) {
           const snap = extractChannelAsImageData(currentState, active3DChannel, gridHeight, gridWidth, 'viridis');
           if (texture.image && texture.image.data) {
@@ -323,13 +436,13 @@ function NCAScene({
           }
         }
 
-        // Live biomass calculation
-        if (frameCountRef.current % 10 === 0) {
+        // Periodic biomass metrics update
+        if (frameCountRef.current % 8 === 0) {
           const metrics = calculateBiomass(currentState);
           onBiomassUpdate(metrics);
         }
       } catch (err) {
-        console.error('[NeuraLife] Inference step error:', err);
+        console.error('[NeuraLife] Simulation step error:', err);
       } finally {
         if (currentInferenceId === inferenceIdRef.current) {
           isInferringRef.current = false;
@@ -338,19 +451,22 @@ function NCAScene({
     })();
   });
 
-  const worldBrushRadius = (BRUSH_RADIUS_CELLS / gridWidth) * 4;
+  const worldBrushRadius = (brushRadius / gridWidth) * 4.2;
 
   const brushWorldPos = useMemo(() => {
     if (!brushState.uv) return null;
     return new THREE.Vector3(
-      (brushState.uv.x - 0.5) * 4,
-      (brushState.uv.y - 0.5) * 4,
-      0.02
+      (brushState.uv.x - 0.5) * 4.2,
+      (brushState.uv.y - 0.5) * 4.2,
+      0.03
     );
   }, [brushState.uv]);
 
   return (
     <group>
+      <HolographicContainmentPedestal radius={2.6} />
+
+      {/* Main 3D Cellular Mesh */}
       <mesh
         onPointerDown={handlePointerDown}
         onPointerUp={handlePointerUp}
@@ -359,14 +475,14 @@ function NCAScene({
         onPointerLeave={handlePointerOut}
         onPointerCancel={handlePointerOut}
       >
-        <planeGeometry args={[4, 4, gridWidth, gridHeight]} />
+        <planeGeometry args={[4.2, 4.2, gridWidth, gridHeight]} />
         <shaderMaterial args={[shaderArgs]} />
       </mesh>
 
-      {/* 3D Visual Brush Ring */}
+      {/* Interactive 3D Brush Halo */}
       {brushWorldPos && (
         <mesh position={brushWorldPos}>
-          <ringGeometry args={[Math.max(0.01, worldBrushRadius - 0.015), worldBrushRadius, 32]} />
+          <ringGeometry args={[Math.max(0.015, worldBrushRadius - 0.02), worldBrushRadius, 36]} />
           <meshBasicMaterial
             color={
               brushMode === 'growth'
@@ -374,7 +490,7 @@ function NCAScene({
                 : brushState.isDown ? '#ef4444' : '#818cf8'
             }
             transparent
-            opacity={0.85}
+            opacity={0.9}
             side={THREE.DoubleSide}
           />
         </mesh>
@@ -384,15 +500,17 @@ function NCAScene({
 }
 
 /**
- * NCACanvas — Main component orchestrating R3F and ONNX WebGPU.
+ * NCACanvas — Main Application Studio Orchestrator
  */
 const DEFAULT_CONTROLS: ControlState = {
   pattern: 'morpho-ring',
   brushMode: 'damage',
   brushRadius: 6,
-  heightScale: 0.4,
-  normalStrength: 0.8,
+  heightScale: 0.35,
+  normalStrength: 0.85,
   paletteMode: 'neon',
+  visualMode: 'bio-membrane',
+  simulationEngine: 'morphogenesis',
   paused: false,
   autoRotate: true,
   stepMultiplier: 1,
@@ -404,11 +522,13 @@ export function NCACanvas() {
   const sessionRef = useRef<InferenceSession | null>(null);
   const liveTensorRef = useRef<Tensor | null>(null);
   const [initialState, setInitialState] = useState<Tensor | null>(null);
+  const [targetState, setTargetState] = useState<Tensor | null>(null);
 
   const [status, setStatus] = useState<Status>({ kind: 'loading' });
   const [controls, setControls] = useState<ControlState>(DEFAULT_CONTROLS);
   const [isInspectorOpen, setIsInspectorOpen] = useState(false);
   const [active3DChannel, setActive3DChannel] = useState<number>(-1);
+  const [fps, setFps] = useState<number>(60);
 
   const gridWidth = controls.gridResolution;
   const gridHeight = controls.gridResolution;
@@ -430,12 +550,14 @@ export function NCACanvas() {
 
   const handleReset = useCallback(() => {
     const fresh = createInitialState(controls.gridResolution, controls.gridResolution);
+    const target = createInitialState(controls.gridResolution, controls.gridResolution);
     populateTestPattern(fresh, controls.pattern);
+    populateTestPattern(target, controls.pattern);
     liveTensorRef.current = fresh;
     setInitialState(fresh);
+    setTargetState(target);
   }, [controls.pattern, controls.gridResolution]);
 
-  // Whenever pattern preset or resolution changes, re-populate the state
   useEffect(() => {
     if (status.kind === 'running') {
       handleReset();
@@ -449,9 +571,12 @@ export function NCACanvas() {
       const img = new Image();
       img.onload = () => {
         const fresh = createInitialState(controls.gridResolution, controls.gridResolution);
+        const target = createInitialState(controls.gridResolution, controls.gridResolution);
         populateFromImage(fresh, img);
+        populateFromImage(target, img);
         liveTensorRef.current = fresh;
         setInitialState(fresh);
+        setTargetState(target);
       };
       img.src = e.target.result as string;
     };
@@ -462,12 +587,12 @@ export function NCACanvas() {
     const canvas = document.querySelector('#nca-canvas-container canvas') as HTMLCanvasElement | null;
     if (!canvas) return;
     const link = document.createElement('a');
-    link.download = `neuralife_morphogenesis_${Date.now()}.png`;
+    link.download = `neuralife_${controls.pattern}_${Date.now()}.png`;
     link.href = canvas.toDataURL('image/png');
     link.click();
-  }, []);
+  }, [controls.pattern]);
 
-  // Load / Switch ONNX inference session
+  // Initialise session & state
   useEffect(() => {
     let cancelled = false;
 
@@ -496,9 +621,12 @@ export function NCACanvas() {
       }
 
       const freshState = createInitialState(controls.gridResolution, controls.gridResolution);
+      const tgtState = createInitialState(controls.gridResolution, controls.gridResolution);
       populateTestPattern(freshState, controls.pattern);
+      populateTestPattern(tgtState, controls.pattern);
       liveTensorRef.current = freshState;
       setInitialState(freshState);
+      setTargetState(tgtState);
       setStatus({ kind: 'running' });
     }
 
@@ -509,17 +637,32 @@ export function NCACanvas() {
     };
   }, [controls.modelPath, controls.gridResolution, controls.pattern]);
 
+  // FPS meter loop
+  useEffect(() => {
+    let frames = 0;
+    let lastTime = performance.now();
+    let animId: number;
+
+    function measureFps() {
+      frames++;
+      const now = performance.now();
+      if (now - lastTime >= 1000) {
+        setFps(Math.round((frames * 1000) / (now - lastTime)));
+        frames = 0;
+        lastTime = now;
+      }
+      animId = requestAnimationFrame(measureFps);
+    }
+    animId = requestAnimationFrame(measureFps);
+    return () => cancelAnimationFrame(animId);
+  }, []);
+
   if (status.kind === 'unsupported') {
-    return (
-      <HardwareUnsupported
-        videoSrc={FALLBACK_VIDEO_PATH}
-        errorMessage={status.message}
-      />
-    );
+    return <HardwareUnsupported videoSrc={FALLBACK_VIDEO_PATH} errorMessage={status.message} />;
   }
 
-  const canvasWidth = Math.min(gridWidth * 4.4, 660);
-  const canvasHeight = Math.min(gridHeight * 4.4, 660);
+  const canvasWidth = Math.min(gridWidth * 4.6, 720);
+  const canvasHeight = Math.min(gridHeight * 4.6, 720);
 
   return (
     <div
@@ -530,111 +673,75 @@ export function NCACanvas() {
         alignItems: 'center',
         justifyContent: 'center',
         minHeight: '100dvh',
-        background: '#07070c',
+        background: '#040409',
         position: 'relative',
         userSelect: 'none',
+        overflow: 'hidden',
       }}
     >
-      {/* Plasma background */}
-      <div
-        style={{
-          position: 'absolute',
-          inset: 0,
-          pointerEvents: 'none',
-          zIndex: 0,
-        }}
-      >
+      {/* Deep Space Background Ambient Plasma */}
+      <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 0, opacity: 0.35 }}>
         <Plasma
-          color="#6366f1"
-          speed={0.4}
+          color="#4f46e5"
+          speed={0.25}
           direction="forward"
-          scale={1.2}
-          opacity={0.5}
+          scale={1.4}
+          opacity={0.4}
           mouseInteractive={false}
-          renderScale={0.45}
+          renderScale={0.4}
           maxDpr={1.5}
           targetFps={30}
-          iterations={48}
+          iterations={36}
         />
       </div>
 
-      {/* Sleek Top Cyber Navigation Bar */}
+      {/* Top Cyber Navigation Studio Bar */}
       <header
         id="neuralife-header"
         style={{
           position: 'fixed',
           top: 16,
-          left: 24,
+          left: 22,
           zIndex: 100,
           display: 'flex',
           alignItems: 'center',
           gap: 16,
-          background: 'rgba(12, 12, 22, 0.85)',
-          backdropFilter: 'blur(20px)',
-          WebkitBackdropFilter: 'blur(20px)',
-          padding: '10px 18px',
+          background: 'rgba(10, 10, 20, 0.85)',
+          backdropFilter: 'blur(24px)',
+          WebkitBackdropFilter: 'blur(24px)',
+          padding: '8px 16px',
           borderRadius: 14,
-          border: '1px solid rgba(99, 102, 241, 0.25)',
-          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.6), 0 0 20px rgba(99, 102, 241, 0.12)',
+          border: '1px solid rgba(99, 102, 241, 0.3)',
+          boxShadow: '0 12px 36px rgba(0, 0, 0, 0.6), 0 0 20px rgba(99, 102, 241, 0.15)',
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span style={{ fontSize: 20, filter: 'drop-shadow(0 0 8px #6366f1)' }}>🧬</span>
+          <span style={{ fontSize: 22, filter: 'drop-shadow(0 0 10px #6366f1)' }}>🧬</span>
           <div>
-            <div style={{ fontSize: 13, fontWeight: 800, letterSpacing: '0.08em', color: '#f8fafc' }}>
+            <div style={{ fontSize: 13, fontWeight: 900, letterSpacing: '0.08em', color: '#f8fafc' }}>
               NeuraLife
             </div>
-            <div style={{ fontSize: 10, color: '#64748b', fontWeight: 600 }}>
-              3D Morphogenesis Engine
+            <div style={{ fontSize: 9, color: '#818cf8', fontWeight: 700, letterSpacing: '0.04em' }}>
+              3D Neural Morphogenesis Engine
             </div>
           </div>
         </div>
 
         {/* Live System Pills */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <span
-            style={{
-              padding: '3px 8px',
-              borderRadius: 6,
-              background: 'rgba(16, 185, 129, 0.15)',
-              border: '1px solid rgba(16, 185, 129, 0.3)',
-              color: '#34d399',
-              fontSize: 10,
-              fontWeight: 700,
-            }}
-          >
-            ● WebGPU
+          <span style={{ padding: '3px 8px', borderRadius: 6, background: 'rgba(16, 185, 129, 0.15)', border: '1px solid rgba(16, 185, 129, 0.35)', color: '#34d399', fontSize: 10, fontWeight: 700 }}>
+            ● WebGPU Active
           </span>
-          <span
-            style={{
-              padding: '3px 8px',
-              borderRadius: 6,
-              background: 'rgba(99, 102, 241, 0.12)',
-              border: '1px solid rgba(99, 102, 241, 0.25)',
-              color: '#c7d2fe',
-              fontSize: 10,
-              fontWeight: 700,
-            }}
-          >
-            {gridWidth}×{gridHeight} Lattice
+          <span style={{ padding: '3px 8px', borderRadius: 6, background: 'rgba(99, 102, 241, 0.15)', border: '1px solid rgba(99, 102, 241, 0.3)', color: '#c7d2fe', fontSize: 10, fontWeight: 700 }}>
+            {gridWidth}×{gridHeight} Grid
           </span>
-          <span
-            style={{
-              padding: '3px 8px',
-              borderRadius: 6,
-              background: 'rgba(168, 85, 247, 0.12)',
-              border: '1px solid rgba(168, 85, 247, 0.25)',
-              color: '#d8b4fe',
-              fontSize: 10,
-              fontWeight: 700,
-            }}
-          >
-            {controls.modelPath === '/models/nca_model.onnx' ? '✦ Trained NCA (24KB)' : '⚙ Baseline (52KB)'}
+          <span style={{ padding: '3px 8px', borderRadius: 6, background: 'rgba(168, 85, 247, 0.15)', border: '1px solid rgba(168, 85, 247, 0.3)', color: '#d8b4fe', fontSize: 10, fontWeight: 700 }}>
+            {controls.simulationEngine === 'morphogenesis' ? '🧬 Bio Field' : '🧠 Neural ONNX'}
           </span>
         </div>
 
-        {/* Action Buttons */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 8 }}>
+        {/* Action Controls */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 6 }}>
           <button
             id="open-inspector-btn"
             onClick={() => setIsInspectorOpen(true)}
@@ -644,16 +751,14 @@ export function NCACanvas() {
               gap: 6,
               padding: '6px 12px',
               borderRadius: 8,
-              border: '1px solid rgba(99, 102, 241, 0.4)',
-              background: 'rgba(99, 102, 241, 0.2)',
+              border: '1px solid rgba(99, 102, 241, 0.45)',
+              background: 'rgba(99, 102, 241, 0.22)',
               color: '#e0e7ff',
               fontSize: 11,
               fontWeight: 700,
               cursor: 'pointer',
               transition: 'all 0.15s',
             }}
-            onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(99, 102, 241, 0.35)')}
-            onMouseLeave={(e) => (e.currentTarget.style.background = 'rgba(99, 102, 241, 0.2)')}
           >
             <span>🔬</span>
             <span>16-Channel Inspector</span>
@@ -674,9 +779,8 @@ export function NCACanvas() {
               fontSize: 11,
               fontWeight: 600,
               cursor: 'pointer',
-              transition: 'all 0.15s',
             }}
-            title="Download high-res PNG snapshot of 3D surface"
+            title="Download PNG snapshot"
           >
             <span>📸</span>
             <span>Snapshot</span>
@@ -684,7 +788,48 @@ export function NCACanvas() {
         </div>
       </header>
 
-      <FPSCounter />
+      {/* Floating Left Telemetry HUD */}
+      <aside
+        id="telemetry-hud"
+        style={{
+          position: 'fixed',
+          top: 80,
+          left: 22,
+          zIndex: 90,
+          background: 'rgba(10, 10, 18, 0.85)',
+          backdropFilter: 'blur(20px)',
+          WebkitBackdropFilter: 'blur(20px)',
+          border: '1px solid rgba(99, 102, 241, 0.25)',
+          borderRadius: 14,
+          padding: '12px 16px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 10,
+          boxShadow: '0 12px 32px rgba(0, 0, 0, 0.6)',
+          width: 170,
+        }}
+      >
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span style={{ fontSize: 10, fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase' }}>Frame Rate</span>
+          <span style={{ fontSize: 13, fontWeight: 900, color: fps >= 55 ? '#34d399' : '#f59e0b' }}>
+            {fps} <span style={{ fontSize: 9, color: '#64748b' }}>FPS</span>
+          </span>
+        </div>
+
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span style={{ fontSize: 10, fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase' }}>Tissue State</span>
+          <span style={{ fontSize: 11, fontWeight: 800, color: '#c7d2fe' }}>
+            {biomass.biomassPercent > 85 ? '🟢 Stable' : '⚡ Healing'}
+          </span>
+        </div>
+
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span style={{ fontSize: 10, fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase' }}>Optics Mode</span>
+          <span style={{ fontSize: 10, fontWeight: 700, color: '#818cf8', textTransform: 'capitalize' }}>
+            {controls.visualMode.replace('-', ' ')}
+          </span>
+        </div>
+      </aside>
 
       {/* 3D Single Channel Projection Active Indicator */}
       {active3DChannel >= 0 && (
@@ -692,34 +837,26 @@ export function NCACanvas() {
           id="projection-pill"
           style={{
             position: 'fixed',
-            top: 80,
-            left: 24,
+            top: 195,
+            left: 22,
             zIndex: 99,
             display: 'flex',
             alignItems: 'center',
             gap: 8,
-            padding: '8px 14px',
+            padding: '6px 12px',
             borderRadius: 10,
-            background: 'rgba(99, 102, 241, 0.25)',
+            background: 'rgba(99, 102, 241, 0.3)',
             border: '1px solid #818cf8',
             color: '#ffffff',
-            fontSize: 11,
+            fontSize: 10,
             fontWeight: 700,
             boxShadow: '0 8px 24px rgba(99, 102, 241, 0.3)',
           }}
         >
-          <span>🪐 3D Projection: Channel {active3DChannel} (Viridis Colormap)</span>
+          <span>🪐 3D: Channel {active3DChannel}</span>
           <button
             onClick={() => setActive3DChannel(-1)}
-            style={{
-              background: 'transparent',
-              border: 'none',
-              color: '#c7d2fe',
-              cursor: 'pointer',
-              fontSize: 12,
-              fontWeight: 800,
-            }}
-            title="Reset to RGBA view"
+            style={{ background: 'transparent', border: 'none', color: '#c7d2fe', cursor: 'pointer', fontWeight: 800 }}
           >
             ✕ Reset
           </button>
@@ -737,58 +874,57 @@ export function NCACanvas() {
             alignItems: 'center',
             justifyContent: 'center',
             zIndex: 10,
-            background: 'rgba(7, 7, 12, 0.92)',
+            background: 'rgba(4, 4, 9, 0.95)',
           }}
         >
           <div
             style={{
-              width: 48,
-              height: 48,
+              width: 52,
+              height: 52,
               border: '3px solid rgba(99, 102, 241, 0.2)',
               borderTopColor: '#6366f1',
               borderRadius: '50%',
               animation: 'nca-spin 0.8s linear infinite',
             }}
           />
-          <p
-            style={{
-              marginTop: 16,
-              color: '#94a3b8',
-              fontSize: 14,
-              fontWeight: 600,
-            }}
-          >
-            Initialising 3D WebGPU inference lattice…
+          <p style={{ marginTop: 16, color: '#c7d2fe', fontSize: 13, fontWeight: 700, letterSpacing: '0.04em' }}>
+            Initialising 3D Morphogenesis Lattice…
           </p>
         </div>
       )}
 
-      {/* R3F WebGL Container with Cyber Glow Frame */}
+      {/* R3F 3D WebGL Canvas Container with Cyber Frame */}
       <div
         style={{
           width: canvasWidth,
           height: canvasHeight,
-          borderRadius: 18,
-          border: '1px solid rgba(99, 102, 241, 0.25)',
-          boxShadow: '0 0 80px rgba(99, 102, 241, 0.15), inset 0 0 40px rgba(0, 0, 0, 0.7)',
+          borderRadius: 22,
+          border: '1px solid rgba(99, 102, 241, 0.35)',
+          boxShadow: '0 0 100px rgba(99, 102, 241, 0.2), inset 0 0 50px rgba(0, 0, 0, 0.85)',
           overflow: 'hidden',
           visibility: status.kind === 'running' ? 'visible' : 'hidden',
-          background: 'radial-gradient(circle at center, #111122 0%, #080811 100%)',
+          background: 'radial-gradient(circle at center, #0e0e1f 0%, #05050b 100%)',
+          position: 'relative',
         }}
       >
-        {status.kind === 'running' && sessionRef.current && initialState && (
-          <Canvas camera={{ position: [0, -3.5, 3], fov: 50 }}>
-            <OrbitControls 
+        {status.kind === 'running' && sessionRef.current && initialState && targetState && (
+          <Canvas camera={{ position: [0, -2.4, 3.2], fov: 48 }}>
+            <OrbitControls
               enablePan={true}
               enableZoom={true}
               enableRotate={true}
               autoRotate={controls.autoRotate}
-              autoRotateSpeed={0.5}
+              autoRotateSpeed={0.4}
+              dampingFactor={0.05}
             />
-            <ambientLight intensity={1.0} />
+            <ambientLight intensity={0.9} />
+            <pointLight position={[3, 3, 4]} intensity={1.2} color="#ffffff" />
+            <pointLight position={[-3, -3, 3]} intensity={0.6} color="#818cf8" />
+
             <NCAScene
               session={sessionRef.current}
               initialState={initialState}
+              targetState={targetState}
               gridWidth={gridWidth}
               gridHeight={gridHeight}
               brushMode={controls.brushMode}
@@ -796,6 +932,8 @@ export function NCACanvas() {
               heightScale={controls.heightScale}
               normalStrength={controls.normalStrength}
               paletteMode={controls.paletteMode}
+              visualMode={controls.visualMode}
+              simulationEngine={controls.simulationEngine}
               paused={controls.paused}
               stepMultiplier={controls.stepMultiplier}
               damagePresetTrigger={damagePresetTrigger}
@@ -807,32 +945,35 @@ export function NCACanvas() {
         )}
       </div>
 
-      {/* Bottom Interaction Guide Tooltip Bar */}
+      {/* Bottom Floating Interaction Tooltip Bar */}
       <div
         id="interaction-guide-bar"
         style={{
-          marginTop: 18,
+          marginTop: 16,
           display: 'flex',
           alignItems: 'center',
-          gap: 20,
-          color: '#64748b',
+          gap: 16,
+          color: '#94a3b8',
           fontSize: 11,
           fontFamily: 'var(--nl-font-mono)',
           letterSpacing: '0.04em',
-          background: 'rgba(15, 15, 26, 0.6)',
-          padding: '6px 16px',
+          background: 'rgba(12, 12, 22, 0.75)',
+          backdropFilter: 'blur(16px)',
+          WebkitBackdropFilter: 'blur(16px)',
+          padding: '6px 18px',
           borderRadius: 99,
-          border: '1px solid rgba(255, 255, 255, 0.05)',
+          border: '1px solid rgba(99, 102, 241, 0.2)',
+          boxShadow: '0 8px 24px rgba(0, 0, 0, 0.5)',
         }}
       >
-        <span>🖱️ Left Drag: Perturb & Damage / Seed</span>
+        <span>🖱️ <strong style={{ color: '#e2e8f0' }}>Left Drag:</strong> Perturb / Cultivate</span>
         <span>·</span>
-        <span>🔄 Right Drag: 3D Orbit</span>
+        <span>🔄 <strong style={{ color: '#e2e8f0' }}>Right Drag:</strong> 3D Orbit</span>
         <span>·</span>
-        <span>🔍 Scroll: Depth Zoom</span>
+        <span>🔍 <strong style={{ color: '#e2e8f0' }}>Scroll:</strong> Depth Zoom</span>
       </div>
 
-      {/* Floating Control Panel */}
+      {/* Floating Right Control Deck */}
       <ControlPanel
         controls={controls}
         biomass={biomass}

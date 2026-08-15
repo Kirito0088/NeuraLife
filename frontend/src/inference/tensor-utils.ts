@@ -70,31 +70,70 @@ export function populateTestPattern(tensor: ort.Tensor, patternId: string = 'mor
       if (patternId === 'morpho-ring') {
         if (dist <= radius) {
           const normDist = dist / radius;
-          data[spatialIdx] = Math.max(0, 0.4 * Math.sin(normDist * Math.PI * 2)); // Red
-          data[1 * planeSize + spatialIdx] = 0.6 * (1 - normDist);               // Green
-          data[2 * planeSize + spatialIdx] = 0.95;                                // Blue
-          data[3 * planeSize + spatialIdx] = 1.0;                                 // Alpha
-          for (let c = 4; c < channels; c++) data[c * planeSize + spatialIdx] = 1.0;
+          const ringHarmonic = 0.5 + 0.5 * Math.sin(normDist * Math.PI * 4);
+          data[spatialIdx] = 0.2 + 0.5 * ringHarmonic;                            // Red (Cyber Magenta)
+          data[1 * planeSize + spatialIdx] = 0.6 * (1 - normDist * 0.7);          // Green (Cyan glow)
+          data[2 * planeSize + spatialIdx] = 0.95;                                 // Blue
+          data[3 * planeSize + spatialIdx] = Math.max(0, 1.0 - normDist * normDist * 0.4); // Smooth Alpha
+          for (let c = 4; c < channels; c++) {
+            data[c * planeSize + spatialIdx] = Math.sin(normDist * Math.PI + (c * 0.3));
+          }
         }
       } else if (patternId === 'glowing-emblem') {
         const angle = Math.atan2(dy, dx);
-        const starRadius = radius * (0.7 + 0.3 * Math.cos(angle * 5));
-        if (dist <= starRadius) {
-          const normDist = dist / starRadius;
-          data[spatialIdx] = 1.0 - 0.4 * normDist; // Amber/Gold
-          data[1 * planeSize + spatialIdx] = 0.75 - 0.5 * normDist;
-          data[2 * planeSize + spatialIdx] = 0.2;
-          data[3 * planeSize + spatialIdx] = 1.0;
-          for (let c = 4; c < channels; c++) data[c * planeSize + spatialIdx] = 1.0;
+        const petalRadius = radius * (0.65 + 0.35 * Math.cos(angle * 6));
+        if (dist <= petalRadius) {
+          const normDist = dist / petalRadius;
+          data[spatialIdx] = 1.0 - 0.3 * normDist;                                // Gold Amber
+          data[1 * planeSize + spatialIdx] = 0.8 - 0.4 * normDist;
+          data[2 * planeSize + spatialIdx] = 0.3 + 0.4 * Math.sin(normDist * Math.PI * 3);
+          data[3 * planeSize + spatialIdx] = Math.max(0, 1.0 - normDist * 0.3);
+          for (let c = 4; c < channels; c++) {
+            data[c * planeSize + spatialIdx] = Math.cos(angle * 3 + (c * 0.4));
+          }
         }
       } else if (patternId === 'shield') {
-        const halfSide = radius * 0.75;
+        const halfSide = radius * 0.8;
         if (Math.abs(dx) <= halfSide && Math.abs(dy) <= halfSide) {
-          data[spatialIdx] = 0.85; // Magenta/Emerald
-          data[1 * planeSize + spatialIdx] = 0.2;
-          data[2 * planeSize + spatialIdx] = 0.6;
+          const cornerDist = Math.max(Math.abs(dx), Math.abs(dy)) / halfSide;
+          data[spatialIdx] = 0.85 * (1.0 - cornerDist * 0.5);                     // Violet/Emerald
+          data[1 * planeSize + spatialIdx] = 0.3 + 0.6 * (1.0 - cornerDist);
+          data[2 * planeSize + spatialIdx] = 0.8;
           data[3 * planeSize + spatialIdx] = 1.0;
-          for (let c = 4; c < channels; c++) data[c * planeSize + spatialIdx] = 1.0;
+          for (let c = 4; c < channels; c++) {
+            data[c * planeSize + spatialIdx] = Math.sin(cornerDist * Math.PI * 2);
+          }
+        }
+      } else if (patternId === 'bio-lizard') {
+        // Salamander / Lizard Morphogenesis Pattern
+        const bodyDist = Math.sqrt((dx * 0.8) * (dx * 0.8) + (dy * 2.2) * (dy * 2.2));
+        const headDist = Math.sqrt(dx * dx + (dy + radius * 0.7) * (dy + radius * 0.7));
+        const tailDist = Math.sqrt((dx + Math.sin(dy * 0.15) * 4) * (dx + Math.sin(dy * 0.15) * 4) + (dy - radius * 0.8) * (dy - radius * 0.8));
+        const leg1 = Math.sqrt((Math.abs(dx) - radius * 0.6) ** 2 + (dy + radius * 0.3) ** 2);
+        const leg2 = Math.sqrt((Math.abs(dx) - radius * 0.7) ** 2 + (dy - radius * 0.3) ** 2);
+        
+        const isLizard = bodyDist <= radius * 0.65 || headDist <= radius * 0.45 || (tailDist <= radius * 0.7 && dy > 0) || leg1 <= radius * 0.3 || leg2 <= radius * 0.35;
+        if (isLizard) {
+          data[spatialIdx] = 0.1;                                                 // Emerald Green Body
+          data[1 * planeSize + spatialIdx] = 0.95;
+          data[2 * planeSize + spatialIdx] = 0.5 + 0.3 * Math.sin(dy * 0.3);
+          data[3 * planeSize + spatialIdx] = 1.0;
+          for (let c = 4; c < channels; c++) {
+            data[c * planeSize + spatialIdx] = 0.8;
+          }
+        }
+      } else if (patternId === 'dna-spiral') {
+        const angle = Math.atan2(dy, dx);
+        const spiralDist = Math.abs(dist - ((angle + Math.PI) / (Math.PI * 2)) * radius * 0.9);
+        const spiralDist2 = Math.abs(dist - (((angle + Math.PI * 2) % (Math.PI * 2)) / (Math.PI * 2)) * radius * 0.9);
+        if (spiralDist <= radius * 0.25 || spiralDist2 <= radius * 0.25 || dist <= radius * 0.2) {
+          data[spatialIdx] = 0.2;                                                 // Cyan / Electric Blue Helix
+          data[1 * planeSize + spatialIdx] = 0.85;
+          data[2 * planeSize + spatialIdx] = 1.0;
+          data[3 * planeSize + spatialIdx] = 1.0;
+          for (let c = 4; c < channels; c++) {
+            data[c * planeSize + spatialIdx] = Math.sin(angle * 2 + c);
+          }
         }
       }
     }
@@ -641,4 +680,122 @@ export function extractAllChannelSnapshots(
   }
 
   return snapshots;
+}
+
+/**
+ * Executes a single biological morphogenesis self-healing step on the state tensor.
+ * Propagates regeneration signals from intact perimeter cells into damaged areas.
+ */
+export function stepMorphogenesisEvolution(
+  current: ort.Tensor,
+  target: ort.Tensor,
+  height: number,
+  width: number,
+  regenRate: number = 0.12
+): void {
+  const cData = current.data as Float32Array;
+  const tData = target.data as Float32Array;
+  const planeSize = height * width;
+  const channels = current.dims[1];
+
+  // 1. Compute 3x3 living cell neighborhood mask
+  const aliveNeighbors = new Float32Array(planeSize);
+  const alphaOffset = 3 * planeSize;
+
+  for (let y = 1; y < height - 1; y++) {
+    for (let x = 1; x < width - 1; x++) {
+      const idx = y * width + x;
+      let sum = 0;
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          if (cData[alphaOffset + (y + dy) * width + (x + dx)] > 0.1) {
+            sum++;
+          }
+        }
+      }
+      aliveNeighbors[idx] = sum;
+    }
+  }
+
+  // 2. Diffuse & regenerate towards target state where neighbors are alive
+  for (let y = 1; y < height - 1; y++) {
+    for (let x = 1; x < width - 1; x++) {
+      const idx = y * width + x;
+      const currentAlpha = cData[alphaOffset + idx];
+      const targetAlpha = tData[alphaOffset + idx];
+      const neighbors = aliveNeighbors[idx];
+
+      // If cell is damaged (alpha < target) and has living neighbors, grow
+      if (neighbors > 0 && targetAlpha > 0.05) {
+        const growthStep = regenRate * (neighbors / 8.0);
+        const newAlpha = Math.min(targetAlpha, currentAlpha + growthStep);
+        cData[alphaOffset + idx] = newAlpha;
+
+        // Propagate RGB and hidden channels proportionally to alpha growth
+        for (let c = 0; c < channels; c++) {
+          if (c === 3) continue;
+          const cOff = c * planeSize + idx;
+          const targetVal = tData[cOff];
+          const currVal = cData[cOff];
+          cData[cOff] = currVal + (targetVal - currVal) * regenRate * 1.2;
+        }
+      } else if (targetAlpha < 0.05 && currentAlpha > 0.01) {
+        // Cells outside target boundaries naturally decay (absorbing boundary)
+        cData[alphaOffset + idx] *= 0.85;
+      }
+    }
+  }
+
+  // 3. Apply absorbing zero boundary condition
+  for (let x = 0; x < width; x++) {
+    for (let c = 0; c < channels; c++) {
+      cData[c * planeSize + x] = 0.0;
+      cData[c * planeSize + (height - 1) * width + x] = 0.0;
+    }
+  }
+  for (let y = 0; y < height; y++) {
+    for (let c = 0; c < channels; c++) {
+      cData[c * planeSize + y * width] = 0.0;
+      cData[c * planeSize + y * width + (width - 1)] = 0.0;
+    }
+  }
+}
+
+/**
+ * Stabilizes neural tensor outputs by clamping state channels and applying boundary absorption.
+ */
+export function stabilizeTensorState(
+  tensor: ort.Tensor,
+  height: number,
+  width: number
+): void {
+  const data = tensor.data as Float32Array;
+  const planeSize = height * width;
+  const channels = tensor.dims[1];
+
+  // Clamp RGB to [0, 1], Alpha to [0, 1], Hidden channels to [-3, 3]
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const idx = y * width + x;
+      // Border cells must be hard zeroed
+      if (y === 0 || y === height - 1 || x === 0 || x === width - 1) {
+        for (let c = 0; c < channels; c++) {
+          data[c * planeSize + idx] = 0.0;
+        }
+        continue;
+      }
+
+      // RGBA
+      for (let c = 0; c < 4; c++) {
+        const off = c * planeSize + idx;
+        data[off] = Math.max(0.0, Math.min(1.0, data[off]));
+      }
+
+      // Latent channels
+      for (let c = 4; c < channels; c++) {
+        const off = c * planeSize + idx;
+        data[off] = Math.max(-3.0, Math.min(3.0, data[off]));
+      }
+    }
+  }
 }

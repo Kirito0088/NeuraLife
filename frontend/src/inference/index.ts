@@ -20,6 +20,8 @@ export {
   sampleColormap,
   extractChannelAsImageData,
   extractAllChannelSnapshots,
+  stepMorphogenesisEvolution,
+  stabilizeTensorState,
   CHANNEL_METADATA,
 } from './tensor-utils';
 export type { DamagePresetType, ColormapType, ChannelInfo, ChannelSnapshot } from './tensor-utils';
