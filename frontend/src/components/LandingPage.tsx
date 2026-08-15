@@ -194,7 +194,7 @@ export function LandingPage({ onEnterStudio }: LandingPageProps) {
             letterSpacing: '0.12em', textTransform: 'uppercase',
             color: T.text3,
           }}>
-            Neural Cellular Automata Research
+            The Intelligence of Life
           </span>
 
           <h1 style={{
@@ -203,11 +203,11 @@ export function LandingPage({ onEnterStudio }: LandingPageProps) {
             fontWeight: 900, lineHeight: 0.91,
             letterSpacing: '-0.035em', color: T.text,
           }}>
-            Upload.<br/>
-            Grow.<br/>
-            Cut.<br/>
-            Watch It<br/>
-            Heal.
+            Where<br/>
+            Biology<br/>
+            Meets<br/>
+            Neural<br/>
+            Intelligence
           </h1>
 
           <button
@@ -221,7 +221,7 @@ export function LandingPage({ onEnterStudio }: LandingPageProps) {
               Object.assign(e.currentTarget.style, { background: 'transparent', color: T.text, transform: 'translateY(0)' });
             }}
           >
-            Open the Studio
+            Explore the Platform
           </button>
         </div>
 
@@ -244,7 +244,7 @@ export function LandingPage({ onEnterStudio }: LandingPageProps) {
             fontFamily: T.fontSans, fontSize: 14, lineHeight: 1.72,
             color: T.text2, maxWidth: 230,
           }}>
-            Upload any biological image. A neural network grows it from a single seed cell — then you cut it, and watch it regenerate the exact original shape, cell by cell.
+            NeuraLife simulates biological morphogenesis in real time — patterns that grow, self-organise, and regenerate, guided by neural cellular automata running on WebGPU.
           </p>
 
           <button
@@ -302,18 +302,17 @@ export function LandingPage({ onEnterStudio }: LandingPageProps) {
               fontFamily: T.fontDisplay, fontSize: 'clamp(20px, 2.4vw, 30px)',
               fontWeight: 700, lineHeight: 1.15, letterSpacing: '-0.02em', color: T.text,
             }}>
-              How a Neural Network<br/>Learns to Grow Life
+              Biological Intelligence,<br/>Computationally Modelled
             </h2>
           </div>
 
           {/* Right */}
           <div style={{ paddingTop: 16 }}>
             <p style={{ fontFamily: T.fontSans, fontSize: 15, lineHeight: 1.72, color: T.text2 }}>
-              You provide a target image — a salamander, a leaf, any organism. A neural network
-              (the NCA model) is trained so that starting from a single seed pixel, each cell
-              communicates only with its immediate neighbours, yet the entire colony coordinates
-              to recreate the exact target shape. Cut the organism in half. The remaining cells
-              detect the missing tissue and grow it back — no central brain, no global map.
+              NeuraLife models the fundamental processes of biological growth and regeneration
+              using Neural Cellular Automata — AI systems where each cell coordinates with its
+              neighbours to create complex global structures, exactly as living cells do during
+              embryonic development and tissue repair.
             </p>
           </div>
         </div>
@@ -361,11 +360,11 @@ export function LandingPage({ onEnterStudio }: LandingPageProps) {
               </h2>
             </div>
             <p style={{ fontFamily: T.fontSans, fontSize: 15, lineHeight: 1.7, color: T.text2, paddingBottom: 4 }}>
-              Each of the 16,384 cells holds 16 numbers. The first 4 are visible (red, green,
-              blue, opacity — the cell's colour). The remaining 12 are hidden signals:
-              growth hormones, positional gradients, damage markers. The neural network reads
-              a cell and its 8 neighbours, then outputs new values — repeated every frame
-              to grow, maintain, and repair the organism.
+              Each of the 16,384 cells in the morphogenetic lattice maintains a
+              16-dimensional hidden state. Four visible channels encode colour and
+              opacity; twelve latent channels encode biochemical signals, growth
+              factors, and intercellular communication gradients — invisible to the
+              eye but essential to the organism's emergent intelligence.
             </p>
           </div>
 
@@ -415,7 +414,7 @@ export function LandingPage({ onEnterStudio }: LandingPageProps) {
                 letterSpacing: '0.1em', textTransform: 'uppercase', color: T.text3,
                 display: 'block', marginBottom: 10,
               }}>
-                Upload Your Own Image
+                Pattern Discovery
               </span>
               <h2 style={{
                 fontFamily: T.fontDisplay,
@@ -423,17 +422,16 @@ export function LandingPage({ onEnterStudio }: LandingPageProps) {
                 fontWeight: 800, lineHeight: 1.0,
                 letterSpacing: '-0.028em', color: T.text,
               }}>
-                Five Built-In<br/>Biological Specimens
+                Five Morphogenetic<br/>Specimens
               </h2>
             </div>
             <p style={{
               fontFamily: T.fontSans, fontSize: 15, lineHeight: 1.7,
               color: T.text2, maxWidth: 380, paddingBottom: 4,
             }}>
-              Each specimen is a target image the neural network was trained on.
-              Switch specimens to watch the NCA grow a completely different organism
-              from a single seed — or upload your own image and train a new model
-              to grow it.
+              Each specimen defines a target morphology. The neural field grows from
+              a single seed cell, self-organising until it perfectly matches the pattern
+              — then holds that structure indefinitely.
             </p>
           </div>
 
@@ -521,11 +519,10 @@ export function LandingPage({ onEnterStudio }: LandingPageProps) {
               fontFamily: T.fontSans, fontSize: 15, lineHeight: 1.72,
               color: 'rgba(255,255,255,0.72)',
             }}>
-              Use the brush to cut or destroy part of the organism. Watch the
-              surrounding cells detect the missing region through their local chemical
-              signals, then coordinate to regrow the exact target shape — the same
-              healing process seen in biological tissue, modelled by a real neural
-              network running in your browser.
+              Use the raycaster brush to directly perturb living tissue. Apply
+              catastrophic injuries and watch neighbouring cells detect damage
+              gradients, coordinate biochemical signals, and regenerate the exact
+              target morphology — entirely through local rules.
             </p>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
@@ -685,18 +682,17 @@ export function LandingPage({ onEnterStudio }: LandingPageProps) {
           fontSize: 'clamp(44px, 6vw, 84px)',
           fontWeight: 900, lineHeight: 0.91,
           letterSpacing: '-0.04em', color: T.text,
-          maxWidth: 640,
+          maxWidth: 600,
         }}>
-          Upload an Image.<br/>Watch Life Grow.{' '}<br/>Cut it. Watch it Heal.
+          Begin Your<br/>Exploration
         </h2>
 
         <p style={{
           fontFamily: T.fontSans, fontSize: 15, lineHeight: 1.7,
           color: T.text3, maxWidth: 440,
         }}>
-          Open the studio, pick the Bio Salamander specimen, apply a Bisection Cut,
-          and watch a real neural network regrow an entire half-organism from scratch.
-          All in your browser, at 60 fps.
+          Open the real-time 3D studio. Grow, damage, and observe biological
+          self-regeneration — all in your browser.
         </p>
 
         <button
