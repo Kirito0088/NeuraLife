@@ -1,10 +1,6 @@
 import { useEffect, useRef, useState, useMemo } from 'react';
 import type { Tensor } from 'onnxruntime-web';
-import {
-  extractAllChannelSnapshots,
-  extractChannelAsImageData,
-  CHANNEL_METADATA,
-} from '../inference';
+import { extractAllChannelSnapshots } from '../inference';
 import type { ColormapType, ChannelSnapshot } from '../inference';
 
 interface HiddenChannelInspectorProps {
@@ -605,6 +601,20 @@ function FocusedChannelDetail({
             <h2 style={{ margin: 0, fontSize: 16, fontWeight: 800 }}>
               {snapshot.info.name}
             </h2>
+            <span
+              style={{
+                fontSize: 10,
+                fontWeight: 700,
+                textTransform: 'uppercase',
+                padding: '2px 6px',
+                borderRadius: 4,
+                background: 'rgba(99, 102, 241, 0.15)',
+                border: '1px solid rgba(99, 102, 241, 0.3)',
+                color: '#a5b4fc',
+              }}
+            >
+              {colormap}
+            </span>
           </div>
           <button
             onClick={onClose}

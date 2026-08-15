@@ -1,0 +1,49 @@
+name: NeuraLife CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  test-and-build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js (v20)
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Setup Python (v3.11)
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install Python Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest torch torchvision onnx numpy
+
+      - name: Install Frontend Dependencies
+        run: |
+          npm ci --prefix frontend
+          npm install
+
+      - name: Run Frontend Linter (Oxlint)
+        run: npm --prefix frontend run lint
+
+      - name: Run TypeScript Build Check
+        run: npm --prefix frontend run build
+
+      - name: Run Frontend Vitest Unit Tests
+        run: npm --prefix frontend test
+
+      - name: Run ML Pytest Suite
+        run: python -m pytest

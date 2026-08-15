@@ -27,9 +27,6 @@ import { ControlPanel } from './ControlPanel';
 import type { ControlState } from './ControlPanel';
 import { HiddenChannelInspector } from './HiddenChannelInspector';
 
-const GRID_HEIGHT = 128;
-const GRID_WIDTH = 128;
-const MODEL_PATH = '/models/dummy_model.onnx';
 const FALLBACK_VIDEO_PATH = '/assets/fallback.mp4';
 
 type Status =
@@ -399,6 +396,8 @@ const DEFAULT_CONTROLS: ControlState = {
   paused: false,
   autoRotate: true,
   stepMultiplier: 1,
+  modelPath: '/models/nca_model.onnx',
+  gridResolution: 128,
 };
 
 export function NCACanvas() {
@@ -411,9 +410,12 @@ export function NCACanvas() {
   const [isInspectorOpen, setIsInspectorOpen] = useState(false);
   const [active3DChannel, setActive3DChannel] = useState<number>(-1);
 
+  const gridWidth = controls.gridResolution;
+  const gridHeight = controls.gridResolution;
+
   const [biomass, setBiomass] = useState<{ activeCells: number; totalCells: number; biomassPercent: number }>({
     activeCells: 0,
-    totalCells: GRID_WIDTH * GRID_HEIGHT,
+    totalCells: controls.gridResolution * controls.gridResolution,
     biomassPercent: 0,
   });
 
@@ -427,18 +429,18 @@ export function NCACanvas() {
   }, []);
 
   const handleReset = useCallback(() => {
-    const fresh = createInitialState(GRID_HEIGHT, GRID_WIDTH);
+    const fresh = createInitialState(controls.gridResolution, controls.gridResolution);
     populateTestPattern(fresh, controls.pattern);
     liveTensorRef.current = fresh;
     setInitialState(fresh);
-  }, [controls.pattern]);
+  }, [controls.pattern, controls.gridResolution]);
 
-  // Whenever pattern preset selection changes, re-populate the state
+  // Whenever pattern preset or resolution changes, re-populate the state
   useEffect(() => {
     if (status.kind === 'running') {
       handleReset();
     }
-  }, [controls.pattern, status.kind, handleReset]);
+  }, [controls.pattern, controls.gridResolution, status.kind, handleReset]);
 
   const handleImageUpload = useCallback((file: File) => {
     const reader = new FileReader();
@@ -446,7 +448,7 @@ export function NCACanvas() {
       if (!e.target?.result) return;
       const img = new Image();
       img.onload = () => {
-        const fresh = createInitialState(GRID_HEIGHT, GRID_WIDTH);
+        const fresh = createInitialState(controls.gridResolution, controls.gridResolution);
         populateFromImage(fresh, img);
         liveTensorRef.current = fresh;
         setInitialState(fresh);
@@ -454,7 +456,7 @@ export function NCACanvas() {
       img.src = e.target.result as string;
     };
     reader.readAsDataURL(file);
-  }, []);
+  }, [controls.gridResolution]);
 
   const handleCaptureSnapshot = useCallback(() => {
     const canvas = document.querySelector('#nca-canvas-container canvas') as HTMLCanvasElement | null;
@@ -465,6 +467,7 @@ export function NCACanvas() {
     link.click();
   }, []);
 
+  // Load / Switch ONNX inference session
   useEffect(() => {
     let cancelled = false;
 
@@ -473,10 +476,13 @@ export function NCACanvas() {
       if (cancelled) return;
 
       try {
-        const { session } = await createInferenceSession(MODEL_PATH);
+        const { session } = await createInferenceSession(controls.modelPath);
         if (cancelled) {
           session.release();
           return;
+        }
+        if (sessionRef.current) {
+          sessionRef.current.release();
         }
         sessionRef.current = session;
       } catch (err) {
@@ -489,8 +495,8 @@ export function NCACanvas() {
         return;
       }
 
-      const freshState = createInitialState(GRID_HEIGHT, GRID_WIDTH);
-      populateTestPattern(freshState);
+      const freshState = createInitialState(controls.gridResolution, controls.gridResolution);
+      populateTestPattern(freshState, controls.pattern);
       liveTensorRef.current = freshState;
       setInitialState(freshState);
       setStatus({ kind: 'running' });
@@ -500,12 +506,8 @@ export function NCACanvas() {
 
     return () => {
       cancelled = true;
-      if (sessionRef.current) {
-        sessionRef.current.release();
-        sessionRef.current = null;
-      }
     };
-  }, []);
+  }, [controls.modelPath, controls.gridResolution, controls.pattern]);
 
   if (status.kind === 'unsupported') {
     return (
@@ -516,8 +518,8 @@ export function NCACanvas() {
     );
   }
 
-  const canvasWidth = Math.min(GRID_WIDTH * 4.4, 660);
-  const canvasHeight = Math.min(GRID_HEIGHT * 4.4, 660);
+  const canvasWidth = Math.min(gridWidth * 4.4, 660);
+  const canvasHeight = Math.min(gridHeight * 4.4, 660);
 
   return (
     <div
@@ -614,7 +616,7 @@ export function NCACanvas() {
               fontWeight: 700,
             }}
           >
-            {GRID_WIDTH}×{GRID_HEIGHT} Lattice
+            {gridWidth}×{gridHeight} Lattice
           </span>
           <span
             style={{
@@ -627,7 +629,7 @@ export function NCACanvas() {
               fontWeight: 700,
             }}
           >
-            16 Latent Channels
+            {controls.modelPath === '/models/nca_model.onnx' ? '✦ Trained NCA (24KB)' : '⚙ Baseline (52KB)'}
           </span>
         </div>
 
@@ -787,8 +789,8 @@ export function NCACanvas() {
             <NCAScene
               session={sessionRef.current}
               initialState={initialState}
-              gridWidth={GRID_WIDTH}
-              gridHeight={GRID_HEIGHT}
+              gridWidth={gridWidth}
+              gridHeight={gridHeight}
               brushMode={controls.brushMode}
               brushRadius={controls.brushRadius}
               heightScale={controls.heightScale}
@@ -845,8 +847,8 @@ export function NCACanvas() {
         isOpen={isInspectorOpen}
         onClose={() => setIsInspectorOpen(false)}
         stateTensor={liveTensorRef.current}
-        gridWidth={GRID_WIDTH}
-        gridHeight={GRID_HEIGHT}
+        gridWidth={gridWidth}
+        gridHeight={gridHeight}
         active3DChannel={active3DChannel}
         onSelect3DChannel={(ch) => {
           setActive3DChannel(ch);

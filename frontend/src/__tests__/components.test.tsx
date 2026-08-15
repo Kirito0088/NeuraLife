@@ -65,6 +65,8 @@ describe('ControlPanel Damage Presets', () => {
     paused: false,
     autoRotate: true,
     stepMultiplier: 1,
+    modelPath: '/models/nca_model.onnx',
+    gridResolution: 128,
   };
 
   const dummyBiomass: BiomassMetrics = {

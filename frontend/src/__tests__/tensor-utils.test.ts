@@ -190,16 +190,16 @@ describe('applyDamage', () => {
 
     // Check center pixel (5, 5)
     // dx = 5.5 - 5.0 = 0.5, dy = 0.5 -> dist^2 = 0.5 <= 4 (damaged)
-    expect(data[0 * H * W + 5 * W + 5]).toBe(0.0);
+    expect(data[5 * W + 5]).toBe(0.0);
     expect(data[15 * H * W + 5 * W + 5]).toBe(0.0);
 
     // Check pixel (3, 5)
     // dx = 3.5 - 5.0 = -1.5, dy = 0.5 -> dist^2 = 2.25 + 0.25 = 2.5 <= 4 (damaged)
-    expect(data[0 * H * W + 5 * W + 3]).toBe(0.0);
+    expect(data[5 * W + 3]).toBe(0.0);
 
     // Check pixel (2, 2)
     // dx = 2.5 - 5.0 = -2.5, dy = 2.5 - 5.0 = -2.5 -> dist^2 = 12.5 > 4 (untouched)
-    expect(data[0 * H * W + 2 * W + 2]).toBe(1.0);
+    expect(data[2 * W + 2]).toBe(1.0);
   });
 
   it('handles bounds correctly (u, v outside 0-1 range gracefully)', () => {
@@ -234,7 +234,7 @@ describe('damage presets', () => {
     // Left half (x < midX) should be untouched (1.0)
     for (let y = 0; y < H; y++) {
       for (let x = 0; x < midX; x++) {
-        expect(data[0 * H * W + y * W + x]).toBe(1.0);
+        expect(data[y * W + x]).toBe(1.0);
         expect(data[3 * H * W + y * W + x]).toBe(1.0);
         expect(data[15 * H * W + y * W + x]).toBe(1.0);
       }
@@ -243,7 +243,7 @@ describe('damage presets', () => {
     // Right half (x >= midX) should be zeroed (0.0)
     for (let y = 0; y < H; y++) {
       for (let x = midX; x < W; x++) {
-        expect(data[0 * H * W + y * W + x]).toBe(0.0);
+        expect(data[y * W + x]).toBe(0.0);
         expect(data[3 * H * W + y * W + x]).toBe(0.0);
         expect(data[15 * H * W + y * W + x]).toBe(0.0);
       }
@@ -263,14 +263,14 @@ describe('damage presets', () => {
     // Center box should be zeroed
     for (let y = h1; y < h2; y++) {
       for (let x = w1; x < w2; x++) {
-        expect(data[0 * H * W + y * W + x]).toBe(0.0);
+        expect(data[y * W + x]).toBe(0.0);
         expect(data[3 * H * W + y * W + x]).toBe(0.0);
       }
     }
 
     // Outer corner (0, 0) should be untouched
-    expect(data[0 * H * W + 0 * W + 0]).toBe(1.0);
-    expect(data[3 * H * W + 0 * W + 0]).toBe(1.0);
+    expect(data[0]).toBe(1.0);
+    expect(data[3 * H * W]).toBe(1.0);
   });
 
   it('damageScatter randomly zeroes out cells roughly around the specified ratio', () => {
@@ -281,7 +281,7 @@ describe('damage presets', () => {
     let zeroCount = 0;
     const totalCells = H * W;
     for (let i = 0; i < totalCells; i++) {
-      if (data[0 * H * W + i] === 0.0) {
+      if (data[i] === 0.0) {
         zeroCount++;
       }
     }
@@ -299,26 +299,26 @@ describe('damage presets', () => {
 
     const cy = H / 2;
     const cx = W / 2;
-    // Center pixel (10, 10)
-    expect(data[0 * H * W + 10 * W + 10]).toBe(0.0);
-    expect(data[3 * H * W + 10 * W + 10]).toBe(0.0);
+    // Center pixel (cy, cx)
+    expect(data[cy * W + cx]).toBe(0.0);
+    expect(data[3 * H * W + cy * W + cx]).toBe(0.0);
 
     // Corner pixel (0, 0) is far away and must remain 1.0
-    expect(data[0 * H * W + 0 * W + 0]).toBe(1.0);
+    expect(data[0]).toBe(1.0);
   });
 
   it('applyDamagePreset correctly routes all damage types', () => {
     const tHalf = createFullTensor();
     applyDamagePreset(tHalf, 'cut_half');
-    expect((tHalf.data as Float32Array)[0 * H * W + 0 * W + (W - 1)]).toBe(0.0);
+    expect((tHalf.data as Float32Array)[W - 1]).toBe(0.0);
 
     const tCenter = createFullTensor();
     applyDamagePreset(tCenter, 'cut_center');
-    expect((tCenter.data as Float32Array)[0 * H * W + 10 * W + 10]).toBe(0.0);
+    expect((tCenter.data as Float32Array)[10 * W + 10]).toBe(0.0);
 
     const tHole = createFullTensor();
     applyDamagePreset(tHole, 'small_hole');
-    expect((tHole.data as Float32Array)[0 * H * W + 10 * W + 10]).toBe(0.0);
+    expect((tHole.data as Float32Array)[10 * W + 10]).toBe(0.0);
   });
 });
 

@@ -59,7 +59,6 @@ export function populateTestPattern(tensor: ort.Tensor, patternId: string = 'mor
   const centerY = Math.floor(height / 2);
   const centerX = Math.floor(width / 2);
   const radius = Math.floor(Math.min(height, width) / 3.5);
-  const radiusSq = radius * radius;
 
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
@@ -71,10 +70,10 @@ export function populateTestPattern(tensor: ort.Tensor, patternId: string = 'mor
       if (patternId === 'morpho-ring') {
         if (dist <= radius) {
           const normDist = dist / radius;
-          data[0 * planeSize + spatialIdx] = Math.max(0, 0.4 * Math.sin(normDist * Math.PI * 2)); // Red
-          data[1 * planeSize + spatialIdx] = 0.6 * (1 - normDist);                               // Green
-          data[2 * planeSize + spatialIdx] = 0.95;                                              // Blue
-          data[3 * planeSize + spatialIdx] = 1.0;                                               // Alpha
+          data[spatialIdx] = Math.max(0, 0.4 * Math.sin(normDist * Math.PI * 2)); // Red
+          data[1 * planeSize + spatialIdx] = 0.6 * (1 - normDist);               // Green
+          data[2 * planeSize + spatialIdx] = 0.95;                                // Blue
+          data[3 * planeSize + spatialIdx] = 1.0;                                 // Alpha
           for (let c = 4; c < channels; c++) data[c * planeSize + spatialIdx] = 1.0;
         }
       } else if (patternId === 'glowing-emblem') {
@@ -82,7 +81,7 @@ export function populateTestPattern(tensor: ort.Tensor, patternId: string = 'mor
         const starRadius = radius * (0.7 + 0.3 * Math.cos(angle * 5));
         if (dist <= starRadius) {
           const normDist = dist / starRadius;
-          data[0 * planeSize + spatialIdx] = 1.0 - 0.4 * normDist; // Amber/Gold
+          data[spatialIdx] = 1.0 - 0.4 * normDist; // Amber/Gold
           data[1 * planeSize + spatialIdx] = 0.75 - 0.5 * normDist;
           data[2 * planeSize + spatialIdx] = 0.2;
           data[3 * planeSize + spatialIdx] = 1.0;
@@ -91,7 +90,7 @@ export function populateTestPattern(tensor: ort.Tensor, patternId: string = 'mor
       } else if (patternId === 'shield') {
         const halfSide = radius * 0.75;
         if (Math.abs(dx) <= halfSide && Math.abs(dy) <= halfSide) {
-          data[0 * planeSize + spatialIdx] = 0.85; // Magenta/Emerald
+          data[spatialIdx] = 0.85; // Magenta/Emerald
           data[1 * planeSize + spatialIdx] = 0.2;
           data[2 * planeSize + spatialIdx] = 0.6;
           data[3 * planeSize + spatialIdx] = 1.0;
@@ -139,7 +138,7 @@ export function populateFromImage(
       const b = pixels[pxIdx + 2] / 255.0;
       const a = pixels[pxIdx + 3] / 255.0;
 
-      data[0 * planeSize + spatialIdx] = r;
+      data[spatialIdx] = r;
       data[1 * planeSize + spatialIdx] = g;
       data[2 * planeSize + spatialIdx] = b;
       data[3 * planeSize + spatialIdx] = a;
@@ -416,7 +415,7 @@ export function applySeed(
       if (dx * dx + dy * dy <= radiusSq) {
         const spatialIdx = y * width + x;
         // Plant cell: RGB vibrant cyan/violet, Alpha = 1.0, hidden states = 1.0
-        data[0 * planeSize + spatialIdx] = 0.4;
+        data[spatialIdx] = 0.4;
         data[1 * planeSize + spatialIdx] = 0.8;
         data[2 * planeSize + spatialIdx] = 1.0;
         data[3 * planeSize + spatialIdx] = 1.0;

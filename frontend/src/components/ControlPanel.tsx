@@ -5,6 +5,8 @@ export type PatternPreset = 'morpho-ring' | 'glowing-emblem' | 'shield';
 export type BrushMode = 'damage' | 'growth';
 export type PaletteMode = 'neon' | 'emerald' | 'solar' | 'hologram';
 
+export type ModelChoice = '/models/nca_model.onnx' | '/models/dummy_model.onnx';
+
 export interface ControlState {
   pattern: PatternPreset;
   brushMode: BrushMode;
@@ -15,6 +17,8 @@ export interface ControlState {
   paused: boolean;
   autoRotate: boolean;
   stepMultiplier: number;
+  modelPath: ModelChoice;
+  gridResolution: number;
 }
 
 export interface BiomassMetrics {
@@ -138,6 +142,90 @@ export function ControlPanel({ controls, biomass, onChange, onReset, onImageUplo
               Neural Cellular Automata · Morphogenesis Engine
             </p>
           </div>
+
+          {/* Neural Model Selector */}
+          <section id="model-selector-section">
+            <Label>Neural Model</Label>
+            <div style={{ display: 'flex', gap: 7, marginTop: 8 }}>
+              <button
+                id="model-choice-trained"
+                onClick={() => set({ modelPath: '/models/nca_model.onnx' })}
+                style={{
+                  flex: 1,
+                  padding: '8px 6px',
+                  borderRadius: 8,
+                  border: controls.modelPath === '/models/nca_model.onnx' ? '1px solid #818cf8' : '1px solid rgba(255,255,255,0.06)',
+                  background: controls.modelPath === '/models/nca_model.onnx' ? 'rgba(99,102,241,0.2)' : 'rgba(255,255,255,0.03)',
+                  color: controls.modelPath === '/models/nca_model.onnx' ? '#c7d2fe' : '#64748b',
+                  fontSize: 11,
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  transition: 'all 0.15s',
+                }}
+              >
+                ✦ Trained (24KB)
+              </button>
+              <button
+                id="model-choice-dummy"
+                onClick={() => set({ modelPath: '/models/dummy_model.onnx' })}
+                style={{
+                  flex: 1,
+                  padding: '8px 6px',
+                  borderRadius: 8,
+                  border: controls.modelPath === '/models/dummy_model.onnx' ? '1px solid #818cf8' : '1px solid rgba(255,255,255,0.06)',
+                  background: controls.modelPath === '/models/dummy_model.onnx' ? 'rgba(99,102,241,0.2)' : 'rgba(255,255,255,0.03)',
+                  color: controls.modelPath === '/models/dummy_model.onnx' ? '#c7d2fe' : '#64748b',
+                  fontSize: 11,
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  transition: 'all 0.15s',
+                }}
+              >
+                ⚙ Baseline (52KB)
+              </button>
+            </div>
+          </section>
+
+          {/* Grid Resolution Selector */}
+          <section id="resolution-selector-section">
+            <Label>Lattice Resolution</Label>
+            <div style={{ display: 'flex', gap: 7, marginTop: 8 }}>
+              <button
+                id="res-choice-128"
+                onClick={() => set({ gridResolution: 128 })}
+                style={{
+                  flex: 1,
+                  padding: '6px 0',
+                  borderRadius: 8,
+                  border: controls.gridResolution === 128 ? '1px solid #10b981' : '1px solid rgba(255,255,255,0.06)',
+                  background: controls.gridResolution === 128 ? 'rgba(16,185,129,0.18)' : 'rgba(255,255,255,0.03)',
+                  color: controls.gridResolution === 128 ? '#6ee7b7' : '#64748b',
+                  fontSize: 11,
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                }}
+              >
+                128×128 (HD)
+              </button>
+              <button
+                id="res-choice-64"
+                onClick={() => set({ gridResolution: 64 })}
+                style={{
+                  flex: 1,
+                  padding: '6px 0',
+                  borderRadius: 8,
+                  border: controls.gridResolution === 64 ? '1px solid #10b981' : '1px solid rgba(255,255,255,0.06)',
+                  background: controls.gridResolution === 64 ? 'rgba(16,185,129,0.18)' : 'rgba(255,255,255,0.03)',
+                  color: controls.gridResolution === 64 ? '#6ee7b7' : '#64748b',
+                  fontSize: 11,
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                }}
+              >
+                64×64 (Fast)
+              </button>
+            </div>
+          </section>
 
           {/* Biomass Analytics Readout Card */}
           <section

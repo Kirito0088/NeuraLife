@@ -9,9 +9,13 @@
     "preview": "npm --prefix frontend run preview",
     "test:frontend": "npm --prefix frontend test",
     "test:ml": "pytest",
+    "test:e2e": "playwright test -c tests/e2e/playwright.config.ts",
     "test": "npm --prefix frontend test && pytest"
   },
   "dependencies": {
     "ogl": "^1.0.11"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.62.1"
   }
 }
