@@ -1,11 +1,11 @@
 /*
- * NeuraLife — Design System Styles
+ * NeuraLife — Global Design System
  *
- * Dark theme foundation for the NCA canvas application.
- * Full-viewport layout with cyber-neon glassmorphism and subtle glowing accents.
+ * Light editorial aesthetic for the landing page.
+ * NCA Studio (NCACanvas) retains its own dark inline styles.
  */
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&family=Outfit:wght@500;700;800;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Outfit:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600;700&display=swap');
 
 *,
 *::before,
@@ -16,98 +16,57 @@
 }
 
 :root {
-  /* Colour tokens */
-  --nl-bg-primary: #07070c;
-  --nl-bg-surface: #0f0f18;
-  --nl-bg-glass: rgba(15, 15, 26, 0.85);
-  --nl-text-primary: #f8fafc;
-  --nl-text-secondary: #94a3b8;
-  --nl-text-muted: #64748b;
-  --nl-accent: #6366f1;
-  --nl-accent-cyan: #38bdf8;
-  --nl-accent-emerald: #10b981;
-  --nl-accent-glow: rgba(99, 102, 241, 0.25);
-  --nl-error: #ef4444;
-  --nl-success: #10b981;
+  /* ── Light Editorial Tokens ── */
+  --nl-white:     #ffffff;
+  --nl-off-white: #f8f7f5;
+  --nl-surface-1: #f3f2f0;
+  --nl-surface-2: #eceae7;
+  --nl-surface-3: #e5e3de;
+  --nl-border:    #e2e0db;
+  --nl-border-soft: #eeedea;
+  --nl-border-strong: #ccc8c2;
 
-  /* Typography */
-  --nl-font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-  --nl-font-heading: 'Outfit', 'Inter', sans-serif;
-  --nl-font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+  --nl-text-primary:   #0a0a0a;
+  --nl-text-secondary: #3d3d3d;
+  --nl-text-tertiary:  #6b6b6b;
+  --nl-text-muted:     #9a9a9a;
 
-  /* Spacing scale (4px base) */
-  --nl-space-1: 4px;
-  --nl-space-2: 8px;
-  --nl-space-3: 12px;
-  --nl-space-4: 16px;
-  --nl-space-6: 24px;
-  --nl-space-8: 32px;
+  /* ── Fonts ── */
+  --nl-font-sans:    'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --nl-font-display: 'Outfit', 'Inter', sans-serif;
+  --nl-font-mono:    'JetBrains Mono', 'Fira Code', monospace;
 
-  color-scheme: dark;
+  /* ── Radius ── */
+  --r-sm:   6px;
+  --r-md:   12px;
+  --r-lg:   20px;
+  --r-xl:   28px;
+  --r-2xl:  40px;
+  --r-pill: 9999px;
+
+  color-scheme: light;
+}
+
+html {
+  scroll-behavior: smooth;
 }
 
 html,
 body {
-  height: 100%;
-  width: 100%;
-  background: var(--nl-bg-primary);
+  min-height: 100%;
+  background: var(--nl-white);
   color: var(--nl-text-primary);
   font-family: var(--nl-font-sans);
-  font-size: 15px;
+  font-size: 16px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  overflow: hidden;
 }
 
 #root {
-  height: 100%;
-  width: 100%;
+  min-height: 100%;
 }
 
-/* Custom Webkit Scrollbars for Modals & Drawers */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-::-webkit-scrollbar-track {
-  background: rgba(10, 10, 20, 0.5);
-}
-::-webkit-scrollbar-thumb {
-  background: rgba(99, 102, 241, 0.3);
-  border-radius: 99px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(99, 102, 241, 0.6);
-}
-
-@keyframes nca-fade-in {
-  from {
-    opacity: 0;
-    transform: scale(0.98);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
-@keyframes nca-pulse-glow {
-  0%, 100% {
-    box-shadow: 0 0 15px rgba(99, 102, 241, 0.3);
-  }
-  50% {
-    box-shadow: 0 0 30px rgba(99, 102, 241, 0.6);
-  }
-}
-
-@keyframes nca-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-/* Ensure images and videos don't overflow */
 img,
 video {
   max-width: 100%;
@@ -115,13 +74,111 @@ video {
   display: block;
 }
 
-/* Respect user motion preferences */
+/* ── Scrollbar ── */
+::-webkit-scrollbar       { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: var(--nl-surface-1); }
+::-webkit-scrollbar-thumb { background: var(--nl-border-strong); border-radius: 99px; }
+::-webkit-scrollbar-thumb:hover { background: var(--nl-text-muted); }
+
+/* ── Studio-specific scrollbar overrides ── */
+.studio-scroll ::-webkit-scrollbar-track  { background: rgba(10,10,20,0.5); }
+.studio-scroll ::-webkit-scrollbar-thumb  { background: rgba(99,102,241,0.3); }
+
+/* ───────────────────────────────────────
+   ANIMATIONS
+─────────────────────────────────────── */
+
+/* NCA Studio animations (kept for NCACanvas loading spinner etc.) */
+@keyframes nca-spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes nca-fade-in {
+  from { opacity: 0; transform: scale(0.98); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+@keyframes nca-pulse-glow {
+  0%, 100% { box-shadow: 0 0 15px rgba(99,102,241,0.3); }
+  50%       { box-shadow: 0 0 30px rgba(99,102,241,0.6); }
+}
+
+/* Landing page animations */
+@keyframes nl-particle-float {
+  0%   { transform: translateY(0)   scale(0);   opacity: 0; }
+  8%   { transform: translateY(0)   scale(1);   opacity: 1; }
+  85%  { opacity: 0.6; }
+  100% { transform: translateY(-110px) scale(0.5); opacity: 0; }
+}
+
+@keyframes nl-fade-up {
+  from { opacity: 0; transform: translateY(24px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes nl-subtle-float {
+  0%, 100% { transform: translateY(0); }
+  50%       { transform: translateY(-10px); }
+}
+
+/* ───────────────────────────────────────
+   DNA PARTICLES
+─────────────────────────────────────── */
+.dna-particles {
+  position: absolute;
+  inset: -60px;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 0;
+}
+
+.dna-particle {
+  position: absolute;
+  border-radius: 50%;
+  background: rgba(160, 148, 120, var(--particle-opacity, 0.3));
+  width:  var(--particle-size, 3px);
+  height: var(--particle-size, 3px);
+  left: calc(50% + var(--particle-x, 0px));
+  top:  var(--particle-y, 50%);
+  animation: nl-particle-float
+    var(--particle-duration, 12s)
+    var(--particle-delay, 0s)
+    ease-in-out
+    infinite;
+}
+
+/* ───────────────────────────────────────
+   SCROLL REVEAL
+─────────────────────────────────────── */
+.nl-reveal {
+  opacity: 0;
+  transform: translateY(28px);
+  transition: opacity 0.65s ease, transform 0.65s ease;
+}
+
+.nl-reveal.nl-revealed {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.nl-reveal[data-delay="100"] { transition-delay: 100ms; }
+.nl-reveal[data-delay="150"] { transition-delay: 150ms; }
+.nl-reveal[data-delay="200"] { transition-delay: 200ms; }
+.nl-reveal[data-delay="300"] { transition-delay: 300ms; }
+.nl-reveal[data-delay="400"] { transition-delay: 400ms; }
+.nl-reveal[data-delay="500"] { transition-delay: 500ms; }
+
+/* ───────────────────────────────────────
+   REDUCED MOTION
+─────────────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
+  *, *::before, *::after {
+    animation-duration:       0.01ms !important;
     animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
+    transition-duration:      0.01ms !important;
+  }
+  .nl-reveal {
+    opacity: 1;
+    transform: none;
   }
 }

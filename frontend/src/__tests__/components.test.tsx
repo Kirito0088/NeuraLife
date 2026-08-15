@@ -22,7 +22,7 @@ describe('HardwareUnsupported', () => {
   it('renders the "Hardware Unsupported" heading', () => {
     render(<HardwareUnsupported />);
     const heading = screen.getByRole('heading', {
-      name: /hardware unsupported/i,
+      name: /webgpu unavailable/i,
     });
     expect(heading).toBeDefined();
   });

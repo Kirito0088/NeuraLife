@@ -518,7 +518,7 @@ const DEFAULT_CONTROLS: ControlState = {
   gridResolution: 128,
 };
 
-export function NCACanvas() {
+export function NCACanvas({ onBack }: { onBack?: () => void } = {}) {
   const sessionRef = useRef<InferenceSession | null>(null);
   const liveTensorRef = useRef<Tensor | null>(null);
   const [initialState, setInitialState] = useState<Tensor | null>(null);
@@ -715,6 +715,28 @@ export function NCACanvas() {
           boxShadow: '0 12px 36px rgba(0, 0, 0, 0.6), 0 0 20px rgba(99, 102, 241, 0.15)',
         }}
       >
+        {/* Back to landing */}
+        {onBack && (
+          <button
+            id="back-to-landing-btn"
+            onClick={onBack}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 5,
+              padding: '5px 12px', borderRadius: 8,
+              border: '1px solid rgba(255,255,255,0.15)',
+              background: 'rgba(255,255,255,0.08)',
+              color: 'rgba(255,255,255,0.75)',
+              fontSize: 11, fontWeight: 600,
+              cursor: 'pointer', transition: 'all 0.15s',
+              letterSpacing: '0.02em',
+            }}
+            onMouseEnter={(e) => Object.assign(e.currentTarget.style, { background: 'rgba(255,255,255,0.14)', color: '#fff' })}
+            onMouseLeave={(e) => Object.assign(e.currentTarget.style, { background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.75)' })}
+          >
+            ← NeuraLife
+          </button>
+        )}
+
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <span style={{ fontSize: 22, filter: 'drop-shadow(0 0 10px #6366f1)' }}>🧬</span>
           <div>

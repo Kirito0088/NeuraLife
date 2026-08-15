@@ -1,10 +1,8 @@
 /**
- * HardwareUnsupported — Fallback UI rendered when both WebGPU and
- * WebGL execution providers fail to initialise.
+ * HardwareUnsupported — Fallback UI for when both WebGPU and WebGL fail.
  *
- * Displays a static message with optional pre-rendered video.
- * When `fallback.mp4` is available in `/assets/`, it auto-plays as
- * a muted looping background. Otherwise shows a minimal SVG illustration.
+ * Displays an editorial-style error page consistent with the NeuraLife light
+ * design system. Shows an optional pre-rendered video and Chrome/Edge upgrade hint.
  */
 
 interface HardwareUnsupportedProps {
@@ -27,119 +25,112 @@ export function HardwareUnsupported({
         alignItems: 'center',
         justifyContent: 'center',
         minHeight: '100dvh',
-        padding: '32px 24px',
+        padding: '48px 24px',
         textAlign: 'center',
-        background: 'linear-gradient(135deg, #0a0a0f 0%, #1a1a2e 50%, #0a0a0f 100%)',
-        color: '#e0e0e6',
-        fontFamily:
-          '"Inter", "Segoe UI", -apple-system, BlinkMacSystemFont, sans-serif',
+        background: '#f8f7f5',
+        fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif",
       }}
     >
-      {/* SVG illustration — a simplified GPU chip icon */}
+      {/* GPU chip icon — minimal, editorial */}
       <svg
-        width="96"
-        height="96"
-        viewBox="0 0 96 96"
+        width="72"
+        height="72"
+        viewBox="0 0 72 72"
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
         aria-hidden="true"
-        style={{ marginBottom: 24, opacity: 0.6 }}
+        style={{ marginBottom: 28, opacity: 0.55 }}
       >
+        <rect x="14" y="14" width="44" height="44" rx="6" stroke="#0a0a0a" strokeWidth="1.6" />
         <rect
-          x="20"
-          y="20"
-          width="56"
-          height="56"
-          rx="6"
-          stroke="#6366f1"
-          strokeWidth="2"
-        />
-        <rect
-          x="30"
-          y="30"
-          width="36"
-          height="36"
+          x="22"
+          y="22"
+          width="28"
+          height="28"
           rx="4"
-          fill="#6366f1"
-          fillOpacity="0.15"
-          stroke="#6366f1"
-          strokeWidth="1.5"
+          fill="#0a0a0a"
+          fillOpacity="0.06"
+          stroke="#0a0a0a"
+          strokeWidth="1.2"
         />
         {/* Top pins */}
-        <line x1="32" y1="12" x2="32" y2="20" stroke="#6366f1" strokeWidth="2" />
-        <line x1="42" y1="12" x2="42" y2="20" stroke="#6366f1" strokeWidth="2" />
-        <line x1="52" y1="12" x2="52" y2="20" stroke="#6366f1" strokeWidth="2" />
-        <line x1="62" y1="12" x2="62" y2="20" stroke="#6366f1" strokeWidth="2" />
+        <line x1="24" y1="8"  x2="24" y2="14" stroke="#0a0a0a" strokeWidth="1.4" strokeLinecap="round" />
+        <line x1="32" y1="8"  x2="32" y2="14" stroke="#0a0a0a" strokeWidth="1.4" strokeLinecap="round" />
+        <line x1="40" y1="8"  x2="40" y2="14" stroke="#0a0a0a" strokeWidth="1.4" strokeLinecap="round" />
+        <line x1="48" y1="8"  x2="48" y2="14" stroke="#0a0a0a" strokeWidth="1.4" strokeLinecap="round" />
         {/* Bottom pins */}
-        <line x1="32" y1="76" x2="32" y2="84" stroke="#6366f1" strokeWidth="2" />
-        <line x1="42" y1="76" x2="42" y2="84" stroke="#6366f1" strokeWidth="2" />
-        <line x1="52" y1="76" x2="52" y2="84" stroke="#6366f1" strokeWidth="2" />
-        <line x1="62" y1="76" x2="62" y2="84" stroke="#6366f1" strokeWidth="2" />
+        <line x1="24" y1="58" x2="24" y2="64" stroke="#0a0a0a" strokeWidth="1.4" strokeLinecap="round" />
+        <line x1="32" y1="58" x2="32" y2="64" stroke="#0a0a0a" strokeWidth="1.4" strokeLinecap="round" />
+        <line x1="40" y1="58" x2="40" y2="64" stroke="#0a0a0a" strokeWidth="1.4" strokeLinecap="round" />
+        <line x1="48" y1="58" x2="48" y2="64" stroke="#0a0a0a" strokeWidth="1.4" strokeLinecap="round" />
         {/* Left pins */}
-        <line x1="12" y1="32" x2="20" y2="32" stroke="#6366f1" strokeWidth="2" />
-        <line x1="12" y1="42" x2="20" y2="42" stroke="#6366f1" strokeWidth="2" />
-        <line x1="12" y1="52" x2="20" y2="52" stroke="#6366f1" strokeWidth="2" />
-        <line x1="12" y1="62" x2="20" y2="62" stroke="#6366f1" strokeWidth="2" />
+        <line x1="8"  y1="24" x2="14" y2="24" stroke="#0a0a0a" strokeWidth="1.4" strokeLinecap="round" />
+        <line x1="8"  y1="32" x2="14" y2="32" stroke="#0a0a0a" strokeWidth="1.4" strokeLinecap="round" />
+        <line x1="8"  y1="40" x2="14" y2="40" stroke="#0a0a0a" strokeWidth="1.4" strokeLinecap="round" />
+        <line x1="8"  y1="48" x2="14" y2="48" stroke="#0a0a0a" strokeWidth="1.4" strokeLinecap="round" />
         {/* Right pins */}
-        <line x1="76" y1="32" x2="84" y2="32" stroke="#6366f1" strokeWidth="2" />
-        <line x1="76" y1="42" x2="84" y2="42" stroke="#6366f1" strokeWidth="2" />
-        <line x1="76" y1="52" x2="84" y2="52" stroke="#6366f1" strokeWidth="2" />
-        <line x1="76" y1="62" x2="84" y2="62" stroke="#6366f1" strokeWidth="2" />
-        {/* X mark inside chip */}
-        <line x1="38" y1="38" x2="58" y2="58" stroke="#ef4444" strokeWidth="2.5" strokeLinecap="round" />
-        <line x1="58" y1="38" x2="38" y2="58" stroke="#ef4444" strokeWidth="2.5" strokeLinecap="round" />
+        <line x1="58" y1="24" x2="64" y2="24" stroke="#0a0a0a" strokeWidth="1.4" strokeLinecap="round" />
+        <line x1="58" y1="32" x2="64" y2="32" stroke="#0a0a0a" strokeWidth="1.4" strokeLinecap="round" />
+        <line x1="58" y1="40" x2="64" y2="40" stroke="#0a0a0a" strokeWidth="1.4" strokeLinecap="round" />
+        <line x1="58" y1="48" x2="64" y2="48" stroke="#0a0a0a" strokeWidth="1.4" strokeLinecap="round" />
+        {/* X mark */}
+        <line x1="28" y1="28" x2="44" y2="44" stroke="#c0392b" strokeWidth="2" strokeLinecap="round" />
+        <line x1="44" y1="28" x2="28" y2="44" stroke="#c0392b" strokeWidth="2" strokeLinecap="round" />
       </svg>
+
+      {/* Eyebrow label */}
+      <span
+        style={{
+          fontSize: 11, fontWeight: 600, letterSpacing: '0.1em',
+          textTransform: 'uppercase', color: '#9a9a9a',
+          marginBottom: 16, display: 'block',
+        }}
+      >
+        Hardware Incompatible
+      </span>
 
       <h1
         style={{
-          fontSize: 28,
-          fontWeight: 700,
-          marginBottom: 12,
-          background: 'linear-gradient(90deg, #6366f1, #a855f7)',
-          WebkitBackgroundClip: 'text',
-          WebkitTextFillColor: 'transparent',
-          lineHeight: 1.3,
+          fontFamily: "'Outfit', 'Inter', sans-serif",
+          fontSize: 'clamp(32px, 5vw, 52px)',
+          fontWeight: 900, lineHeight: 0.95,
+          letterSpacing: '-0.035em', color: '#0a0a0a',
+          marginBottom: 20,
         }}
       >
-        Hardware Unsupported
+        WebGPU Unavailable
       </h1>
 
       <p
         style={{
-          maxWidth: 480,
-          fontSize: 15,
-          lineHeight: 1.6,
-          color: '#9ca3af',
-          marginBottom: 24,
+          maxWidth: 440, fontSize: 15, lineHeight: 1.7,
+          color: '#3d3d3d', marginBottom: 28,
         }}
       >
-        NeuraLife requires WebGPU or WebGL to run the Neural Cellular Automata
-        simulation in real-time. Your current browser or device does not support
-        either backend.
+        NeuraLife requires WebGPU or WebGL to simulate Neural Cellular Automata
+        in real time. Your current browser or device does not support either
+        rendering backend.
       </p>
 
+      {/* Error detail (collapsible-looking pre block) */}
       {errorMessage && (
         <pre
           style={{
-            maxWidth: 560,
-            padding: '12px 16px',
-            borderRadius: 8,
-            background: 'rgba(239, 68, 68, 0.08)',
-            border: '1px solid rgba(239, 68, 68, 0.2)',
-            color: '#fca5a5',
-            fontSize: 12,
-            lineHeight: 1.5,
-            textAlign: 'left',
-            whiteSpace: 'pre-wrap',
+            maxWidth: 520, padding: '12px 18px',
+            borderRadius: 12, marginBottom: 28,
+            background: 'rgba(192, 57, 43, 0.06)',
+            border: '1px solid rgba(192, 57, 43, 0.18)',
+            color: '#8b1a10', fontSize: 12, lineHeight: 1.55,
+            textAlign: 'left', whiteSpace: 'pre-wrap',
             wordBreak: 'break-word',
-            marginBottom: 24,
-            fontFamily: '"JetBrains Mono", "Fira Code", monospace',
+            fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
           }}
         >
           {errorMessage}
         </pre>
       )}
 
+      {/* Optional pre-rendered video preview */}
       {videoSrc && (
         <video
           src={videoSrc}
@@ -149,23 +140,18 @@ export function HardwareUnsupported({
           playsInline
           aria-label="Pre-rendered NCA simulation preview"
           style={{
-            maxWidth: '100%',
-            width: 480,
-            borderRadius: 12,
-            border: '1px solid rgba(99, 102, 241, 0.2)',
-            boxShadow: '0 8px 32px rgba(99, 102, 241, 0.1)',
+            maxWidth: '100%', width: 460,
+            borderRadius: 16,
+            border: '1px solid #e2e0db',
+            boxShadow: '0 8px 32px rgba(0,0,0,0.07)',
+            marginBottom: 28,
           }}
         />
       )}
 
-      <p
-        style={{
-          marginTop: 24,
-          fontSize: 13,
-          color: '#6b7280',
-        }}
-      >
-        Try opening this page in Chrome 113+ or Edge 113+ with WebGPU enabled.
+      {/* Upgrade hint */}
+      <p style={{ fontSize: 13, color: '#9a9a9a' }}>
+        Try Chrome 113+ or Edge 113+ with WebGPU enabled, on a supported GPU.
       </p>
     </div>
   );
