@@ -503,19 +503,19 @@ function NCAScene({
  * NCACanvas — Main Application Studio Orchestrator
  */
 const DEFAULT_CONTROLS: ControlState = {
-  pattern: 'morpho-ring',
-  brushMode: 'damage',
-  brushRadius: 6,
-  heightScale: 0.35,
-  normalStrength: 0.85,
-  paletteMode: 'neon',
-  visualMode: 'bio-membrane',
-  simulationEngine: 'morphogenesis',
-  paused: false,
-  autoRotate: true,
-  stepMultiplier: 1,
-  modelPath: '/models/nca_model.onnx',
-  gridResolution: 128,
+  pattern:          'bio-lizard',   // biological specimen — most relevant to project goals
+  brushMode:        'damage',
+  brushRadius:      6,
+  heightScale:      0.35,
+  normalStrength:   0.85,
+  paletteMode:      'neon',
+  visualMode:       'slice-2d',     // show actual NCA cell state, not a 3D shader blob
+  simulationEngine: 'neural-onnx', // use the real trained neural network (falls back to morphogenesis on error)
+  paused:           false,
+  autoRotate:       true,
+  stepMultiplier:   1,
+  modelPath:        '/models/nca_model.onnx',
+  gridResolution:   128,
 };
 
 export function NCACanvas({ onBack }: { onBack?: () => void } = {}) {
